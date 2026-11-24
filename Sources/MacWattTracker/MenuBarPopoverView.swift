@@ -12,6 +12,9 @@ public struct MenuBarPopoverView: View {
     @State private var showingExportAlert: Bool = false
     @State private var newProfileName: String = ""
     @State private var newProfileIsHome: Bool = false
+    @State private var editingProfileId: UUID? = nil
+    @State private var editingProfileName: String = ""
+    @State private var editingProfileIsHome: Bool = false
 
     public init(powerMonitor: PowerMonitor) {
         self.powerMonitor = powerMonitor
@@ -404,7 +407,7 @@ public struct MenuBarPopoverView: View {
                         } else {
                             ForEach(Array(powerMonitor.wifiProfileMap.keys.sorted()), id: \.self) { wifiSSID in
                                 let pName = powerMonitor.wifiProfileMap[wifiSSID] ?? "Outside"
-                                let isHome = powerMonitor.allAvailableProfiles.first(where: { $0.name == pName })?.isHomeBilling ?? (pName == "Home")
+                                let isHome = powerMonitor.profiles.first(where: { $0.name == pName })?.isHomeBilling ?? (pName == "Home")
 
                                 HStack(spacing: 6) {
                                     Image(systemName: "wifi")
@@ -413,13 +416,34 @@ public struct MenuBarPopoverView: View {
                                     Text(wifiSSID)
                                         .font(.system(size: 11, weight: .medium))
                                     Spacer()
-                                    Text(pName)
-                                        .font(.system(size: 10, weight: .semibold))
+
+                                    Menu {
+                                        ForEach(powerMonitor.profiles) { p in
+                                            Button(action: {
+                                                powerMonitor.assignProfile(p.name, forSSID: wifiSSID)
+                                            }) {
+                                                HStack {
+                                                    Text(p.name)
+                                                    if p.name == pName {
+                                                        Image(systemName: "checkmark")
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } label: {
+                                        HStack(spacing: 3) {
+                                            Text(pName)
+                                                .font(.system(size: 10, weight: .semibold))
+                                            Image(systemName: "chevron.up.chevron.down")
+                                                .font(.system(size: 7))
+                                        }
                                         .foregroundColor(isHome ? .blue : .orange)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
                                         .background((isHome ? Color.blue : Color.orange).opacity(0.12))
                                         .clipShape(Capsule())
+                                    }
+                                    .menuStyle(.borderlessButton)
 
                                     Button(action: {
                                         powerMonitor.unassignWifi(ssid: wifiSSID)
@@ -439,40 +463,101 @@ public struct MenuBarPopoverView: View {
 
                     Divider().opacity(0.4)
 
-                    // Profiles List & Management
+                    // Profiles List & Management (Full CRUD)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Profiles")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.secondary)
 
-                        ForEach(powerMonitor.allAvailableProfiles) { p in
-                            HStack(spacing: 6) {
-                                Image(systemName: p.icon)
-                                    .font(.system(size: 10))
-                                    .foregroundColor(p.isHomeBilling ? .blue : .orange)
-                                Text(p.name)
-                                    .font(.system(size: 11, weight: .medium))
-                                Spacer()
-                                Text(p.isHomeBilling ? "PLN Rate" : "Free (Rp 0)")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.secondary)
+                        ForEach(powerMonitor.profiles) { p in
+                            if editingProfileId == p.id {
+                                // Inline Profile Editor (Update)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack(spacing: 6) {
+                                        TextField("Profile name", text: $editingProfileName)
+                                            .textFieldStyle(.roundedBorder)
+                                            .font(.system(size: 11))
 
-                                if !LocationProfile.defaultProfiles.contains(where: { $0.name == p.name }) {
+                                        Picker("", selection: $editingProfileIsHome) {
+                                            Text("Free").tag(false)
+                                            Text("PLN").tag(true)
+                                        }
+                                        .pickerStyle(.segmented)
+                                        .frame(width: 80)
+                                    }
+
+                                    HStack {
+                                        Spacer()
+
+                                        Button("Cancel") {
+                                            editingProfileId = nil
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.mini)
+
+                                        Button("Save") {
+                                            let trimmed = editingProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
+                                            if !trimmed.isEmpty {
+                                                _ = powerMonitor.updateProfile(id: p.id, newName: trimmed, isHomeBilling: editingProfileIsHome)
+                                                editingProfileId = nil
+                                            }
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .controlSize(.mini)
+                                        .disabled(editingProfileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                    }
+                                }
+                                .padding(8)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
+                                )
+                            } else {
+                                // Profile Row (Read, Edit, Delete)
+                                HStack(spacing: 6) {
+                                    Image(systemName: p.icon)
+                                        .font(.system(size: 10))
+                                        .foregroundColor(p.isHomeBilling ? .blue : .orange)
+                                    Text(p.name)
+                                        .font(.system(size: 11, weight: .medium))
+                                    Spacer()
+                                    Text(p.isHomeBilling ? "PLN Rate" : "Free (Rp 0)")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.secondary)
+
+                                    // Edit Button
                                     Button(action: {
-                                        powerMonitor.deleteCustomProfile(name: p.name)
+                                        editingProfileId = p.id
+                                        editingProfileName = p.name
+                                        editingProfileIsHome = p.isHomeBilling
                                     }) {
-                                        Image(systemName: "trash")
-                                            .font(.system(size: 9))
+                                        Image(systemName: "pencil")
+                                            .font(.system(size: 10))
                                             .foregroundColor(.secondary)
                                     }
                                     .buttonStyle(.plain)
-                                    .help("Delete custom profile")
+                                    .help("Edit profile")
+
+                                    // Delete Button (only non-system profiles)
+                                    if !p.isSystem {
+                                        Button(action: {
+                                            powerMonitor.deleteProfile(id: p.id)
+                                        }) {
+                                            Image(systemName: "trash")
+                                                .font(.system(size: 9))
+                                                .foregroundColor(.secondary)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help("Delete profile")
+                                    }
                                 }
+                                .padding(.vertical, 2)
                             }
-                            .padding(.vertical, 2)
                         }
 
-                        // Add new profile inline
+                        // Add new profile inline (Create)
                         HStack(spacing: 6) {
                             TextField("New profile name", text: $newProfileName)
                                 .textFieldStyle(.roundedBorder)
@@ -488,7 +573,7 @@ public struct MenuBarPopoverView: View {
                             Button(action: {
                                 let trimmed = newProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
                                 if !trimmed.isEmpty {
-                                    powerMonitor.addCustomProfile(name: trimmed, isHomeBilling: newProfileIsHome)
+                                    _ = powerMonitor.addProfile(name: trimmed, isHomeBilling: newProfileIsHome)
                                     newProfileName = ""
                                 }
                             }) {

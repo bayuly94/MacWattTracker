@@ -21,21 +21,37 @@ public enum OutsidePolicy: String, CaseIterable, Codable {
 }
 
 public struct LocationProfile: Codable, Identifiable, Hashable {
-    public var id: String { name }
+    public var id: UUID
     public var name: String
     public var icon: String
     public var isHomeBilling: Bool
+    public var isSystem: Bool
 
-    public init(name: String, icon: String = "mappin.circle.fill", isHomeBilling: Bool = false) {
+    public init(id: UUID = UUID(), name: String, icon: String = "mappin.circle.fill", isHomeBilling: Bool = false, isSystem: Bool = false) {
+        self.id = id
         self.name = name
         self.icon = icon
         self.isHomeBilling = isHomeBilling
+        self.isSystem = isSystem
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, icon, isHomeBilling, isSystem
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        self.name = try container.decode(String.self, forKey: .name)
+        self.icon = try container.decodeIfPresent(String.self, forKey: .icon) ?? "mappin.circle.fill"
+        self.isHomeBilling = try container.decodeIfPresent(Bool.self, forKey: .isHomeBilling) ?? false
+        self.isSystem = try container.decodeIfPresent(Bool.self, forKey: .isSystem) ?? false
     }
 
     public static let defaultProfiles: [LocationProfile] = [
-        LocationProfile(name: "Home", icon: "house.fill", isHomeBilling: true),
-        LocationProfile(name: "Outside", icon: "cup.and.saucer.fill", isHomeBilling: false),
-        LocationProfile(name: "Office", icon: "building.2.fill", isHomeBilling: false)
+        LocationProfile(name: "Home", icon: "house.fill", isHomeBilling: true, isSystem: true),
+        LocationProfile(name: "Outside", icon: "cup.and.saucer.fill", isHomeBilling: false, isSystem: true),
+        LocationProfile(name: "Office", icon: "building.2.fill", isHomeBilling: false, isSystem: false)
     ]
 }
 
@@ -63,18 +79,12 @@ public final class PowerMonitor: ObservableObject {
     @Published public var currentSSID: String? = nil
     @Published public var currentLocation: LocationType = .home
     @Published public var activeProfileName: String = "Home"
-    @Published public var customProfiles: [LocationProfile] = []
+    @Published public var profiles: [LocationProfile] = []
     @Published public var wifiProfileMap: [String: String] = [:]
     @Published public var lastPromptedSSID: String? = nil
 
     public var allAvailableProfiles: [LocationProfile] {
-        var list = LocationProfile.defaultProfiles
-        for cp in customProfiles {
-            if !list.contains(where: { $0.name == cp.name }) {
-                list.append(cp)
-            }
-        }
-        return list
+        profiles
     }
 
     @Published public var homeWifiNetworks: [String] {
@@ -130,12 +140,25 @@ public final class PowerMonitor: ObservableObject {
         let rawPolicy = UserDefaults.standard.string(forKey: "outsidePolicy") ?? ""
         self.outsidePolicy = OutsidePolicy(rawValue: rawPolicy) ?? .free
 
-        // Load custom profiles
-        if let data = UserDefaults.standard.data(forKey: "customProfiles"),
-           let profiles = try? JSONDecoder().decode([LocationProfile].self, from: data) {
-            self.customProfiles = profiles
+        // Load profiles
+        if let data = UserDefaults.standard.data(forKey: "savedProfiles"),
+           let saved = try? JSONDecoder().decode([LocationProfile].self, from: data),
+           !saved.isEmpty {
+            self.profiles = saved
         } else {
-            self.customProfiles = []
+            var initial = LocationProfile.defaultProfiles
+            if let legacyData = UserDefaults.standard.data(forKey: "customProfiles"),
+               let legacyProfiles = try? JSONDecoder().decode([LocationProfile].self, from: legacyData) {
+                for lp in legacyProfiles {
+                    if !initial.contains(where: { $0.name.lowercased() == lp.name.lowercased() }) {
+                        initial.append(lp)
+                    }
+                }
+            }
+            self.profiles = initial
+            if let initialData = try? JSONEncoder().encode(initial) {
+                UserDefaults.standard.set(initialData, forKey: "savedProfiles")
+            }
         }
 
         // Load wifiProfileMap
@@ -357,9 +380,10 @@ public final class PowerMonitor: ObservableObject {
 
         // 1. Initial rule: The very first Wi-Fi network encountered is automatically Home
         if wifiProfileMap.isEmpty {
-            wifiProfileMap[ssid] = "Home"
+            let homeProfile = profiles.first(where: { $0.isHomeBilling })?.name ?? "Home"
+            wifiProfileMap[ssid] = homeProfile
             UserDefaults.standard.set(wifiProfileMap, forKey: "wifiProfileMap")
-            activeProfileName = "Home"
+            activeProfileName = homeProfile
             currentLocation = .home
             return
         }
@@ -382,36 +406,106 @@ public final class PowerMonitor: ObservableObject {
         }
     }
 
-    public func addCustomProfile(name: String, isHomeBilling: Bool) {
+    // MARK: - Profile CRUD Operations
+
+    @discardableResult
+    public func addProfile(name: String, isHomeBilling: Bool) -> Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        guard !allAvailableProfiles.contains(where: { $0.name.lowercased() == trimmed.lowercased() }) else { return }
-        
+        guard !trimmed.isEmpty else { return false }
+        guard !profiles.contains(where: { $0.name.lowercased() == trimmed.lowercased() }) else { return false }
+
         let icon = isHomeBilling ? "house.fill" : "cup.and.saucer.fill"
-        let newProfile = LocationProfile(name: trimmed, icon: icon, isHomeBilling: isHomeBilling)
-        customProfiles.append(newProfile)
-        saveCustomProfiles()
+        let newProfile = LocationProfile(name: trimmed, icon: icon, isHomeBilling: isHomeBilling, isSystem: false)
+        profiles.append(newProfile)
+        saveProfiles()
+        return true
     }
 
-    public func deleteCustomProfile(name: String) {
-        customProfiles.removeAll(where: { $0.name == name })
-        saveCustomProfiles()
-        // Reassign any Wi-Fi that was using this profile to Outside
+    public func addCustomProfile(name: String, isHomeBilling: Bool) {
+        _ = addProfile(name: name, isHomeBilling: isHomeBilling)
+    }
+
+    @discardableResult
+    public func updateProfile(id: UUID, newName: String, isHomeBilling: Bool) -> Bool {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        guard let index = profiles.firstIndex(where: { $0.id == id }) else { return false }
+
+        let oldName = profiles[index].name
+        if trimmed.lowercased() != oldName.lowercased() {
+            if profiles.contains(where: { $0.id != id && $0.name.lowercased() == trimmed.lowercased() }) {
+                return false
+            }
+        }
+
+        let icon = isHomeBilling ? "house.fill" : "cup.and.saucer.fill"
+        profiles[index].name = trimmed
+        profiles[index].icon = icon
+        profiles[index].isHomeBilling = isHomeBilling
+        saveProfiles()
+
+        if oldName != trimmed {
+            var mapChanged = false
+            for (ssid, pName) in wifiProfileMap where pName == oldName {
+                wifiProfileMap[ssid] = trimmed
+                mapChanged = true
+            }
+            if mapChanged {
+                UserDefaults.standard.set(wifiProfileMap, forKey: "wifiProfileMap")
+            }
+
+            if activeProfileName == oldName {
+                activeProfileName = trimmed
+            }
+        }
+
+        if activeProfileName == trimmed {
+            currentLocation = isHomeBilling ? .home : .outside
+        }
+
+        return true
+    }
+
+    public func deleteProfile(id: UUID) {
+        guard let index = profiles.firstIndex(where: { $0.id == id }) else { return }
+        let profile = profiles[index]
+        guard !profile.isSystem else { return }
+
+        let oldName = profile.name
+        profiles.remove(at: index)
+        saveProfiles()
+
         var changed = false
-        for (ssid, pName) in wifiProfileMap where pName == name {
+        for (ssid, pName) in wifiProfileMap where pName == oldName {
             wifiProfileMap[ssid] = "Outside"
             changed = true
         }
         if changed {
             UserDefaults.standard.set(wifiProfileMap, forKey: "wifiProfileMap")
         }
+
+        if activeProfileName == oldName {
+            activeProfileName = "Outside"
+            currentLocation = .outside
+        }
+
         updateCurrentLocation()
     }
 
-    public func saveCustomProfiles() {
-        if let data = try? JSONEncoder().encode(customProfiles) {
-            UserDefaults.standard.set(data, forKey: "customProfiles")
+    public func deleteCustomProfile(name: String) {
+        if let p = profiles.first(where: { $0.name == name }) {
+            deleteProfile(id: p.id)
         }
+    }
+
+    public func saveProfiles() {
+        if let data = try? JSONEncoder().encode(profiles) {
+            UserDefaults.standard.set(data, forKey: "savedProfiles")
+        }
+    }
+
+    public func saveCustomProfiles() {
+        saveProfiles()
     }
 
     public func assignProfile(_ profileName: String, forSSID ssid: String) {
