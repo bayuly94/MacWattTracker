@@ -63,42 +63,28 @@ public struct WifiProfileDialogView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             // Header
-            VStack(spacing: 6) {
-                HStack(spacing: 8) {
-                    Image(systemName: "wifi.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(.accentColor)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Wi-Fi Network Detected")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.primary)
-                        Text(ssid)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.accentColor)
-                    }
-                    Spacer()
-                }
-
-                Text("Choose a location profile for this network to determine how electricity cost is tracked.")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 8) {
+                Image(systemName: "wifi")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.accentColor)
+                Text(ssid)
+                    .font(.system(size: 14, weight: .bold))
+                Spacer()
             }
-            .padding(.top, 4)
+            .padding(.top, 2)
 
             Divider()
 
             // Profile Selection Section
-            VStack(alignment: .leading, spacing: 8) {
-                Text("SELECT PROFILE")
-                    .font(.system(size: 10, weight: .bold))
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Profile")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.secondary)
 
                 ScrollView {
-                    VStack(spacing: 6) {
+                    VStack(spacing: 4) {
                         ForEach(powerMonitor.allAvailableProfiles) { profile in
                             profileRow(profile)
                         }
@@ -109,22 +95,22 @@ public struct WifiProfileDialogView: View {
                         }) {
                             HStack {
                                 Image(systemName: isCreatingNew ? "checkmark.circle.fill" : "plus.circle")
-                                    .font(.system(size: 13))
+                                    .font(.system(size: 12))
                                     .foregroundColor(isCreatingNew ? .accentColor : .secondary)
 
-                                Text("➕ Create New Profile...")
+                                Text("New Profile...")
                                     .font(.system(size: 12, weight: .medium))
                                     .foregroundColor(.primary)
 
                                 Spacer()
                             }
                             .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
+                            .padding(.vertical, 7)
                             .background(isCreatingNew ? Color.accentColor.opacity(0.12) : Color(NSColor.controlBackgroundColor))
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .stroke(isCreatingNew ? Color.accentColor : Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .stroke(isCreatingNew ? Color.accentColor : Color(NSColor.separatorColor).opacity(0.3), lineWidth: 0.5)
                             )
                         }
                         .buttonStyle(.plain)
@@ -134,28 +120,26 @@ public struct WifiProfileDialogView: View {
 
                 // Input form when "Create New Profile" is chosen
                 if isCreatingNew {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            TextField("e.g. Cafe A, Co-Working, Client Office", text: $newProfileName)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 12))
-                        }
+                    VStack(alignment: .leading, spacing: 6) {
+                        TextField("Profile name", text: $newProfileName)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 12))
 
-                        Picker("Billing Type", selection: $newProfileIsHomeBilling) {
-                            Text("☕️ Outside / Free (Rp 0)").tag(false)
-                            Text("🏠 Home Bill (PLN Rate)").tag(true)
+                        Picker("Billing", selection: $newProfileIsHomeBilling) {
+                            Text("Free (Rp 0)").tag(false)
+                            Text("Home (PLN)").tag(true)
                         }
                         .pickerStyle(.segmented)
                     }
                     .padding(8)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.6))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
             }
 
             // Remember Checkbox
             HStack {
-                Toggle("Always use this profile for '\(ssid)'", isOn: $rememberWifi)
+                Toggle("Remember network", isOn: $rememberWifi)
                     .font(.system(size: 11))
                 Spacer()
             }
@@ -163,25 +147,25 @@ public struct WifiProfileDialogView: View {
             Divider()
 
             // Action Buttons
-            HStack(spacing: 10) {
-                Button("Dismiss / Skip") {
+            HStack(spacing: 8) {
+                Button("Cancel") {
                     onDismiss()
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.regular)
+                .controlSize(.small)
 
                 Spacer()
 
-                Button("Save & Apply") {
+                Button("Apply") {
                     saveSelection()
                 }
                 .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
+                .controlSize(.small)
                 .disabled(isCreatingNew && newProfileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .padding(20)
-        .frame(width: 380)
+        .padding(16)
+        .frame(width: 340)
         .background(Color(NSColor.windowBackgroundColor))
     }
 

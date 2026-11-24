@@ -61,7 +61,7 @@ public struct MenuBarPopoverView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
         }
-        .frame(width: 360, height: 600)
+        .frame(width: 350, height: 560)
         .background(Color(NSColor.windowBackgroundColor))
         .alert("Export CSV", isPresented: $showingExportAlert) {
             Button("OK", role: .cancel) { }
@@ -349,206 +349,133 @@ public struct MenuBarPopoverView: View {
     // MARK: - Settings Tab
     private var settingsView: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                // Card 1: Location Profiles (Home vs Outside)
-                VStack(alignment: .leading, spacing: 8) {
+            VStack(spacing: 12) {
+                // Section 1: Location & Network
+                VStack(spacing: 0) {
+                    // Row 1: Wi-Fi Network & Profile
                     HStack {
-                        Image(systemName: "location.circle.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.accentColor)
-                        Text("Location Profiles (Home vs. Outside)")
-                            .font(.system(size: 12, weight: .semibold))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Network")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text(powerMonitor.currentSSID ?? "Not Connected")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+
                         Spacer()
-                        Text(powerMonitor.currentLocation == .home ? "🏠 Home" : "☕️ Outside")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(powerMonitor.currentLocation == .home ? .blue : .orange)
-                    }
 
-                    // Current Wi-Fi Status
-                    HStack {
-                        Image(systemName: "wifi")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                        Text("Current Network:")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                        Text(powerMonitor.currentSSID ?? "Disconnected / None")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.primary)
-                    }
-
-                    // Quick button to configure profile for current Wi-Fi
-                    if let currentSSID = powerMonitor.currentSSID {
                         Button(action: {
                             powerMonitor.openProfileDialogForCurrentWifi()
                         }) {
-                            HStack {
-                                Image(systemName: "slider.horizontal.3")
-                                Text("Configure Profile for '\(currentSSID)'")
+                            HStack(spacing: 4) {
+                                Text(powerMonitor.currentLocation == .home ? "🏠 \(powerMonitor.activeProfileName)" : "☕️ \(powerMonitor.activeProfileName)")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(powerMonitor.currentLocation == .home ? .blue : .orange)
+                                Image(systemName: "chevron.up.chevron.down")
+                                    .font(.system(size: 9))
+                                    .foregroundColor(.secondary)
                             }
-                            .font(.system(size: 11, weight: .medium))
-                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
-                        .buttonStyle(.bordered)
-                        .tint(.accentColor)
-                        .controlSize(.small)
+                        .buttonStyle(.plain)
                     }
+                    .padding(10)
 
-                    // Assigned Wi-Fi Profiles List
-                    if !powerMonitor.wifiProfileMap.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Assigned Wi-Fi Profiles:")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(.secondary)
+                    Divider().opacity(0.4)
 
-                            ForEach(Array(powerMonitor.wifiProfileMap.keys.sorted()), id: \.self) { wifiName in
-                                HStack {
-                                    Image(systemName: "wifi")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.secondary)
-                                    Text(wifiName)
-                                        .font(.system(size: 11))
-                                    Spacer()
-                                    Text(powerMonitor.wifiProfileMap[wifiName] ?? "")
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundColor(.accentColor)
-                                    Button(action: {
-                                        powerMonitor.wifiProfileMap.removeValue(forKey: wifiName)
-                                        UserDefaults.standard.set(powerMonitor.wifiProfileMap, forKey: "wifiProfileMap")
-                                        powerMonitor.updateCurrentLocation()
-                                    }) {
-                                        Image(systemName: "xmark.circle")
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                                .padding(.vertical, 2)
-                            }
-                        }
-                    }
+                    // Row 2: Outside Charging Policy
+                    HStack {
+                        Text("Outside Charging")
+                            .font(.system(size: 11, weight: .semibold))
 
-                    // Location Mode Picker
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Detection Mode:")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(.secondary)
-
-                        Picker("", selection: $powerMonitor.locationMode) {
-                            ForEach(LocationMode.allCases, id: \.self) { mode in
-                                Text(mode.rawValue).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-
-                    // Outside Charging Policy
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Outside Charging Policy:")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(.secondary)
+                        Spacer()
 
                         Picker("", selection: $powerMonitor.outsidePolicy) {
-                            ForEach(OutsidePolicy.allCases, id: \.self) { policy in
-                                Text(policy.rawValue).tag(policy)
-                            }
+                            Text("Free (Rp 0)").tag(OutsidePolicy.free)
+                            Text("Pause").tag(OutsidePolicy.pause)
                         }
                         .pickerStyle(.menu)
+                        .frame(width: 130)
                     }
-
-                    Text("When connected outside Home (e.g. at cafes), power is categorized separately so it doesn't inflate your home PLN electric bill.")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
+                    .padding(10)
                 }
-                .padding(10)
-                .background(Color(NSColor.controlBackgroundColor))
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.6))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 0.5)
-                )
 
-                // Card 2: Electricity Rate
-                VStack(alignment: .leading, spacing: 8) {
+                // Section 2: Electricity Rate
+                VStack(spacing: 0) {
                     HStack {
-                        Text("Electricity Rate (PLN)")
-                            .font(.system(size: 12, weight: .semibold))
+                        Text("Rate (PLN)")
+                            .font(.system(size: 11, weight: .semibold))
+
                         Spacer()
-                        Text("Rp \(powerMonitor.formattedTariff) / kWh")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.accentColor)
-                    }
 
-                    HStack(spacing: 8) {
-                        TextField("1444.70", value: $powerMonitor.tariffPerKWh, format: .number.precision(.fractionLength(0...2)))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 110)
+                        HStack(spacing: 4) {
+                            Text("Rp")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
 
-                        Text("IDR / kWh")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
+                            TextField("1444.70", value: $powerMonitor.tariffPerKWh, format: .number.precision(.fractionLength(0...2)))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 85)
+                                .multilineTextAlignment(.trailing)
+
+                            Text("/ kWh")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
                     }
+                    .padding(10)
+
+                    Divider().opacity(0.4)
 
                     HStack(spacing: 6) {
-                        Button("R-1 (1,444.70)") {
+                        Button("R-1 (1,444)") {
                             powerMonitor.tariffPerKWh = 1444.70
                         }
                         .buttonStyle(.bordered)
                         .tint(powerMonitor.tariffPerKWh == 1444.70 ? .accentColor : nil)
                         .controlSize(.mini)
 
-                        Button("R-2 (1,699.53)") {
+                        Button("R-2 (1,699)") {
                             powerMonitor.tariffPerKWh = 1699.53
                         }
                         .buttonStyle(.bordered)
                         .tint(powerMonitor.tariffPerKWh == 1699.53 ? .accentColor : nil)
                         .controlSize(.mini)
 
-                        Button("Business (1,444.70)") {
+                        Button("Business") {
                             powerMonitor.tariffPerKWh = 1444.70
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.mini)
+
+                        Spacer()
                     }
-
-                    Text("Default: IDR 1,444.70 / kWh (PLN R-1 residential tariff).")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
                 }
-                .padding(10)
-                .background(Color(NSColor.controlBackgroundColor))
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.6))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 0.5)
-                )
 
-                // Card 2: Auto Start
-                VStack(alignment: .leading, spacing: 6) {
-                    Toggle(isOn: Binding(
+                // Section 3: General System
+                VStack(spacing: 0) {
+                    Toggle("Launch at login", isOn: Binding(
                         get: { powerMonitor.isLaunchAtLogin },
                         set: { newValue in powerMonitor.toggleLaunchAtLogin(enabled: newValue) }
-                    )) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Launch Automatically at Login")
-                                .font(.system(size: 12, weight: .semibold))
-                            Text("App runs automatically in the Menu Bar on system startup.")
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
-                        }
-                    }
+                    ))
+                    .font(.system(size: 11, weight: .semibold))
                     .toggleStyle(.switch)
+                    .padding(10)
                 }
-                .padding(10)
-                .background(Color(NSColor.controlBackgroundColor))
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.6))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 0.5)
-                )
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
         }
     }
 
