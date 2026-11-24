@@ -10,6 +10,8 @@ public struct MenuBarPopoverView: View {
     @State private var selectedTab: Int = 0
     @State private var exportMessage: String? = nil
     @State private var showingExportAlert: Bool = false
+    @State private var newProfileName: String = ""
+    @State private var newProfileIsHome: Bool = false
 
     public init(powerMonitor: PowerMonitor) {
         self.powerMonitor = powerMonitor
@@ -350,12 +352,12 @@ public struct MenuBarPopoverView: View {
     private var settingsView: some View {
         ScrollView {
             VStack(spacing: 12) {
-                // Section 1: Location & Network
+                // Section 1: Network & Profiles
                 VStack(spacing: 0) {
                     // Row 1: Wi-Fi Network & Profile
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Network")
+                            Text("Current Network")
                                 .font(.system(size: 11, weight: .semibold))
                             Text(powerMonitor.currentSSID ?? "Not Connected")
                                 .font(.system(size: 11))
@@ -368,11 +370,12 @@ public struct MenuBarPopoverView: View {
                             powerMonitor.openProfileDialogForCurrentWifi()
                         }) {
                             HStack(spacing: 4) {
-                                Text(powerMonitor.currentLocation == .home ? "🏠 \(powerMonitor.activeProfileName)" : "☕️ \(powerMonitor.activeProfileName)")
+                                let isHome = powerMonitor.currentLocation == .home
+                                Text(isHome ? "🏠 \(powerMonitor.activeProfileName)" : "☕️ \(powerMonitor.activeProfileName)")
                                     .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(powerMonitor.currentLocation == .home ? .blue : .orange)
-                                Image(systemName: "chevron.up.chevron.down")
-                                    .font(.system(size: 9))
+                                    .foregroundColor(isHome ? .blue : .orange)
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 10))
                                     .foregroundColor(.secondary)
                             }
                             .padding(.horizontal, 8)
@@ -381,12 +384,128 @@ public struct MenuBarPopoverView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
                         .buttonStyle(.plain)
+                        .disabled(powerMonitor.currentSSID == nil)
                     }
                     .padding(10)
 
                     Divider().opacity(0.4)
 
-                    // Row 2: Outside Charging Policy
+                    // Saved Wi-Fi Networks
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Saved Networks")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.secondary)
+
+                        if powerMonitor.wifiProfileMap.isEmpty {
+                            Text("No networks saved yet")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary.opacity(0.7))
+                                .padding(.vertical, 2)
+                        } else {
+                            ForEach(Array(powerMonitor.wifiProfileMap.keys.sorted()), id: \.self) { wifiSSID in
+                                let pName = powerMonitor.wifiProfileMap[wifiSSID] ?? "Outside"
+                                let isHome = powerMonitor.allAvailableProfiles.first(where: { $0.name == pName })?.isHomeBilling ?? (pName == "Home")
+
+                                HStack(spacing: 6) {
+                                    Image(systemName: "wifi")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.secondary)
+                                    Text(wifiSSID)
+                                        .font(.system(size: 11, weight: .medium))
+                                    Spacer()
+                                    Text(pName)
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundColor(isHome ? .blue : .orange)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background((isHome ? Color.blue : Color.orange).opacity(0.12))
+                                        .clipShape(Capsule())
+
+                                    Button(action: {
+                                        powerMonitor.unassignWifi(ssid: wifiSSID)
+                                    }) {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 9, weight: .semibold))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Forget network")
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        }
+                    }
+                    .padding(10)
+
+                    Divider().opacity(0.4)
+
+                    // Profiles List & Management
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Profiles")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.secondary)
+
+                        ForEach(powerMonitor.allAvailableProfiles) { p in
+                            HStack(spacing: 6) {
+                                Image(systemName: p.icon)
+                                    .font(.system(size: 10))
+                                    .foregroundColor(p.isHomeBilling ? .blue : .orange)
+                                Text(p.name)
+                                    .font(.system(size: 11, weight: .medium))
+                                Spacer()
+                                Text(p.isHomeBilling ? "PLN Rate" : "Free (Rp 0)")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+
+                                if !LocationProfile.defaultProfiles.contains(where: { $0.name == p.name }) {
+                                    Button(action: {
+                                        powerMonitor.deleteCustomProfile(name: p.name)
+                                    }) {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 9))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Delete custom profile")
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+
+                        // Add new profile inline
+                        HStack(spacing: 6) {
+                            TextField("New profile name", text: $newProfileName)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 11))
+
+                            Picker("", selection: $newProfileIsHome) {
+                                Text("Free").tag(false)
+                                Text("PLN").tag(true)
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 80)
+
+                            Button(action: {
+                                let trimmed = newProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !trimmed.isEmpty {
+                                    powerMonitor.addCustomProfile(name: trimmed, isHomeBilling: newProfileIsHome)
+                                    newProfileName = ""
+                                }
+                            }) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.accentColor)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(newProfileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                        .padding(.top, 4)
+                    }
+                    .padding(10)
+
+                    Divider().opacity(0.4)
+
+                    // Row 4: Outside Charging Policy
                     HStack {
                         Text("Outside Charging")
                             .font(.system(size: 11, weight: .semibold))

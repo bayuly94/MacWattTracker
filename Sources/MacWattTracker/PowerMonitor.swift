@@ -34,7 +34,7 @@ public struct LocationProfile: Codable, Identifiable, Hashable {
 
     public static let defaultProfiles: [LocationProfile] = [
         LocationProfile(name: "Home", icon: "house.fill", isHomeBilling: true),
-        LocationProfile(name: "Cafe / Outside", icon: "cup.and.saucer.fill", isHomeBilling: false),
+        LocationProfile(name: "Outside", icon: "cup.and.saucer.fill", isHomeBilling: false),
         LocationProfile(name: "Office", icon: "building.2.fill", isHomeBilling: false)
     ]
 }
@@ -349,47 +349,68 @@ public final class PowerMonitor: ObservableObject {
     // MARK: - Location & Profile Management
 
     public func updateCurrentLocation() {
-        let ssid = currentSSID
-        switch locationMode {
-        case .forceHome:
-            activeProfileName = "Home"
-            currentLocation = .home
-        case .forceOutside:
+        guard let ssid = currentSSID, !ssid.isEmpty else {
             activeProfileName = "Outside"
             currentLocation = .outside
-        case .auto:
-            if let ssid = ssid {
-                if let assignedName = wifiProfileMap[ssid] {
-                    activeProfileName = assignedName
-                    let profile = allAvailableProfiles.first(where: { $0.name == assignedName })
-                    currentLocation = (profile?.isHomeBilling ?? false) ? .home : .outside
-                } else if homeWifiNetworks.contains(ssid) {
-                    activeProfileName = "Home"
-                    currentLocation = .home
-                } else {
-                    // New unassigned Wi-Fi network detected!
-                    activeProfileName = "Outside"
-                    currentLocation = .outside
+            return
+        }
 
-                    // Show popup dialog prompt to select/create profile
-                    if lastPromptedSSID != ssid {
-                        lastPromptedSSID = ssid
-                        WifiProfileDialogManager.shared.showDialog(ssid: ssid)
-                    }
-                }
-            } else {
-                activeProfileName = "Unknown"
-                currentLocation = .outside
+        // 1. Initial rule: The very first Wi-Fi network encountered is automatically Home
+        if wifiProfileMap.isEmpty {
+            wifiProfileMap[ssid] = "Home"
+            UserDefaults.standard.set(wifiProfileMap, forKey: "wifiProfileMap")
+            activeProfileName = "Home"
+            currentLocation = .home
+            return
+        }
+
+        // 2. Check if this Wi-Fi network is already saved
+        if let assignedName = wifiProfileMap[ssid] {
+            activeProfileName = assignedName
+            let profile = allAvailableProfiles.first(where: { $0.name == assignedName })
+            currentLocation = (profile?.isHomeBilling ?? (assignedName == "Home")) ? .home : .outside
+        } else {
+            // 3. Any other Wi-Fi: default to Outside
+            activeProfileName = "Outside"
+            currentLocation = .outside
+
+            // Show popup dialog prompt to select or create profile
+            if lastPromptedSSID != ssid {
+                lastPromptedSSID = ssid
+                WifiProfileDialogManager.shared.showDialog(ssid: ssid)
             }
         }
     }
 
-    public func addCustomProfile(_ profile: LocationProfile) {
-        if !customProfiles.contains(where: { $0.name == profile.name }) {
-            customProfiles.append(profile)
-            if let data = try? JSONEncoder().encode(customProfiles) {
-                UserDefaults.standard.set(data, forKey: "customProfiles")
-            }
+    public func addCustomProfile(name: String, isHomeBilling: Bool) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard !allAvailableProfiles.contains(where: { $0.name.lowercased() == trimmed.lowercased() }) else { return }
+        
+        let icon = isHomeBilling ? "house.fill" : "cup.and.saucer.fill"
+        let newProfile = LocationProfile(name: trimmed, icon: icon, isHomeBilling: isHomeBilling)
+        customProfiles.append(newProfile)
+        saveCustomProfiles()
+    }
+
+    public func deleteCustomProfile(name: String) {
+        customProfiles.removeAll(where: { $0.name == name })
+        saveCustomProfiles()
+        // Reassign any Wi-Fi that was using this profile to Outside
+        var changed = false
+        for (ssid, pName) in wifiProfileMap where pName == name {
+            wifiProfileMap[ssid] = "Outside"
+            changed = true
+        }
+        if changed {
+            UserDefaults.standard.set(wifiProfileMap, forKey: "wifiProfileMap")
+        }
+        updateCurrentLocation()
+    }
+
+    public func saveCustomProfiles() {
+        if let data = try? JSONEncoder().encode(customProfiles) {
+            UserDefaults.standard.set(data, forKey: "customProfiles")
         }
     }
 
@@ -399,11 +420,16 @@ public final class PowerMonitor: ObservableObject {
         updateCurrentLocation()
     }
 
+    public func unassignWifi(ssid: String) {
+        wifiProfileMap.removeValue(forKey: ssid)
+        UserDefaults.standard.set(wifiProfileMap, forKey: "wifiProfileMap")
+        updateCurrentLocation()
+    }
+
     public func applyProfileTemporarily(_ profileName: String) {
         activeProfileName = profileName
-        if let profile = allAvailableProfiles.first(where: { $0.name == profileName }) {
-            currentLocation = profile.isHomeBilling ? .home : .outside
-        }
+        let profile = allAvailableProfiles.first(where: { $0.name == profileName })
+        currentLocation = (profile?.isHomeBilling ?? (profileName == "Home")) ? .home : .outside
     }
 
     public func openProfileDialogForCurrentWifi() {
@@ -412,30 +438,34 @@ public final class PowerMonitor: ObservableObject {
     }
 
     public static func detectCurrentSSID() -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/ipconfig")
-        process.arguments = ["getsummary", "en0"]
+        for iface in ["en0", "en1"] {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/sbin/ipconfig")
+            process.arguments = ["getsummary", iface]
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
 
-        do {
-            try process.run()
-            process.waitUntilExit()
+            do {
+                try process.run()
+                process.waitUntilExit()
 
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8) {
-                for line in output.components(separatedBy: "\n") {
-                    let trimmed = line.trimmingCharacters(in: .whitespaces)
-                    if trimmed.hasPrefix("SSID : ") {
-                        let ssid = String(trimmed.dropFirst("SSID : ".count)).trimmingCharacters(in: .whitespaces)
-                        return ssid.isEmpty ? nil : ssid
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                if let output = String(data: data, encoding: .utf8) {
+                    for line in output.components(separatedBy: "\n") {
+                        let trimmed = line.trimmingCharacters(in: .whitespaces)
+                        if trimmed.hasPrefix("SSID : ") {
+                            let ssid = String(trimmed.dropFirst("SSID : ".count)).trimmingCharacters(in: .whitespaces)
+                            if !ssid.isEmpty {
+                                return ssid
+                            }
+                        }
                     }
                 }
+            } catch {
+                continue
             }
-        } catch {
-            return nil
         }
         return nil
     }

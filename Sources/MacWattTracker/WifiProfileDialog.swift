@@ -51,7 +51,7 @@ public struct WifiProfileDialogView: View {
 
     @ObservedObject var powerMonitor = PowerMonitor.shared
 
-    @State private var selectedProfileName: String = "Home"
+    @State private var selectedProfileName: String
     @State private var isCreatingNew: Bool = false
     @State private var newProfileName: String = ""
     @State private var newProfileIsHomeBilling: Bool = false
@@ -60,6 +60,8 @@ public struct WifiProfileDialogView: View {
     public init(ssid: String, onDismiss: @escaping () -> Void) {
         self.ssid = ssid
         self.onDismiss = onDismiss
+        let initial = PowerMonitor.shared.wifiProfileMap[ssid] ?? "Outside"
+        _selectedProfileName = State(initialValue: initial)
     }
 
     public var body: some View {
@@ -211,9 +213,8 @@ public struct WifiProfileDialogView: View {
         let targetProfileName: String
         if isCreatingNew {
             let trimmed = newProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
-            let icon = newProfileIsHomeBilling ? "house.fill" : "cup.and.saucer.fill"
-            let newProfile = LocationProfile(name: trimmed, icon: icon, isHomeBilling: newProfileIsHomeBilling)
-            powerMonitor.addCustomProfile(newProfile)
+            guard !trimmed.isEmpty else { return }
+            powerMonitor.addCustomProfile(name: trimmed, isHomeBilling: newProfileIsHomeBilling)
             targetProfileName = trimmed
         } else {
             targetProfileName = selectedProfileName
