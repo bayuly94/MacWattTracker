@@ -139,10 +139,10 @@ public final class HistoryStore {
         }
     }
 
-    /// Membuat teks CSV dari seluruh riwayat
+    /// Export history records to CSV formatted string
     public func exportCSV(tariffPerKWh: Double) -> String {
         return queue.sync {
-            var csv = "Tanggal,Label,Durasi Tercolok,Detik Tercolok,Peak Watt (W),Energi (Wh),Energi (kWh),Tarif (Rp/kWh),Estimasi Biaya (Rp)\n"
+            var csv = "Date,Label,Active Duration,Active Seconds,Peak Watt (W),Energy (Wh),Energy (kWh),Tariff (IDR/kWh),Estimated Cost (IDR)\n"
             let sorted = Array(inMemoryRecords.values).sorted(by: { $0.date > $1.date })
 
             for r in sorted {

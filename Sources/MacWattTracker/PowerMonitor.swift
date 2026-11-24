@@ -358,11 +358,11 @@ public final class PowerMonitor: ObservableObject {
         let secs = seconds % 60
 
         if hours > 0 {
-            return "\(hours)j \(minutes)m"
+            return "\(hours)h \(minutes)m"
         } else if minutes > 0 {
-            return "\(minutes)m \(secs)d"
+            return "\(minutes)m \(secs)s"
         } else {
-            return "\(secs)d"
+            return "\(secs)s"
         }
     }
 

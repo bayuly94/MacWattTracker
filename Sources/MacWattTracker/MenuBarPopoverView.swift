@@ -3,7 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 import MacWattTrackerCore
 
-/// Tampilan Menu Bar Popover yang clean, modern, dan adaptif terhadap Light Mode & Dark Mode macOS.
+/// Clean, modern macOS Menu Bar Popover adaptive to Light & Dark Mode.
 public struct MenuBarPopoverView: View {
     @ObservedObject var powerMonitor: PowerMonitor
 
@@ -17,7 +17,7 @@ public struct MenuBarPopoverView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // MARK: - 1. Header (Status & Watt PLN Live)
+            // MARK: - 1. Header (Live PLN Status & Power Draw)
             headerView
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
@@ -26,7 +26,7 @@ public struct MenuBarPopoverView: View {
             Divider()
                 .opacity(0.6)
 
-            // MARK: - 2. Kartu Ringkasan (Hari Ini & Bulan Ini)
+            // MARK: - 2. Summary Cards (Today & This Month)
             summaryCardsSection
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -36,8 +36,8 @@ public struct MenuBarPopoverView: View {
 
             // MARK: - 3. Segmented Tab Switcher
             Picker("", selection: $selectedTab) {
-                Text("Riwayat").tag(0)
-                Text("Pengaturan").tag(1)
+                Text("History").tag(0)
+                Text("Settings").tag(1)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
@@ -46,7 +46,7 @@ public struct MenuBarPopoverView: View {
             Divider()
                 .opacity(0.6)
 
-            // MARK: - 4. Isi Tab
+            // MARK: - 4. Tab Content
             if selectedTab == 0 {
                 historyListView
             } else {
@@ -63,7 +63,7 @@ public struct MenuBarPopoverView: View {
         }
         .frame(width: 360, height: 680)
         .background(Color(NSColor.windowBackgroundColor))
-        .alert("Ekspor CSV", isPresented: $showingExportAlert) {
+        .alert("Export CSV", isPresented: $showingExportAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(exportMessage ?? "")
@@ -83,7 +83,7 @@ public struct MenuBarPopoverView: View {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.green)
-                        Text("Terhubung Charger (\(powerMonitor.displayAdapterRating))")
+                        Text("Connected (\(powerMonitor.displayAdapterRating))")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(.green)
                     }
@@ -99,7 +99,7 @@ public struct MenuBarPopoverView: View {
                         Image(systemName: "battery.100")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.secondary)
-                        Text("Mode Baterai (Pencatatan Dijeda)")
+                        Text("Battery Mode (Tracking Paused)")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(.secondary)
                     }
@@ -119,7 +119,7 @@ public struct MenuBarPopoverView: View {
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Refresh data daya sekarang")
+                .help("Refresh power reading now")
             }
 
             // Big Live Watt Display
@@ -136,11 +136,11 @@ public struct MenuBarPopoverView: View {
                 }
 
                 if powerMonitor.isExternalConnected {
-                    Text("Estimasi Daya Tarikan Stopkontak PLN")
+                    Text("Estimated Wall Outlet Draw")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 } else {
-                    Text("Charger dicabut • Pemakaian stopkontak = 0 W")
+                    Text("On battery • Wall outlet power = 0 W")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
@@ -149,10 +149,10 @@ public struct MenuBarPopoverView: View {
             // Sub-info Daya Murni Sistem
             if powerMonitor.isExternalConnected {
                 HStack(spacing: 8) {
-                    Text("Beban Sistem: \(String(format: "%.1f", powerMonitor.systemLoadWatt)) W")
+                    Text("System Load: \(String(format: "%.1f", powerMonitor.systemLoadWatt)) W")
                     Text("•")
                         .foregroundColor(Color(NSColor.tertiaryLabelColor))
-                    Text("Input Adaptor: \(String(format: "%.1f", powerMonitor.systemPowerInWatt)) W")
+                    Text("Adapter Input: \(String(format: "%.1f", powerMonitor.systemPowerInWatt)) W")
                 }
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
@@ -160,30 +160,30 @@ public struct MenuBarPopoverView: View {
         }
     }
 
-    // MARK: - Kartu Ringkasan (Hari Ini & Bulan Ini)
+    // MARK: - Summary Cards (Today & This Month)
     private var summaryCardsSection: some View {
         HStack(spacing: 10) {
-            // Kartu Hari Ini
+            // Today Card
             summaryCard(
-                title: "HARI INI",
+                title: "TODAY",
                 icon: "calendar",
                 cost: "Rp \(powerMonitor.formattedTodayCost)",
                 lines: [
-                    ("Energi", powerMonitor.formattedKWh(wh: powerMonitor.todayRecord.totalWh)),
-                    ("Durasi", powerMonitor.todayRecord.formattedDuration),
+                    ("Energy", powerMonitor.formattedKWh(wh: powerMonitor.todayRecord.totalWh)),
+                    ("Duration", powerMonitor.todayRecord.formattedDuration),
                     ("Peak", String(format: "%.1f W", powerMonitor.todayRecord.peakWatt))
                 ]
             )
 
-            // Kartu Bulan Ini
+            // Month Card
             summaryCard(
-                title: "BULAN INI",
+                title: "THIS MONTH",
                 icon: "chart.bar.fill",
                 cost: "Rp \(powerMonitor.formattedMonthCost)",
                 lines: [
-                    ("Energi", powerMonitor.formattedKWh(wh: powerMonitor.monthTotalWh)),
-                    ("Durasi", powerMonitor.formatDuration(seconds: powerMonitor.monthActiveSeconds)),
-                    ("Tarif", "Rp \(powerMonitor.formattedTariff)/kWh")
+                    ("Energy", powerMonitor.formattedKWh(wh: powerMonitor.monthTotalWh)),
+                    ("Duration", powerMonitor.formatDuration(seconds: powerMonitor.monthActiveSeconds)),
+                    ("Rate", "Rp \(powerMonitor.formattedTariff)/kWh")
                 ]
             )
         }
@@ -228,7 +228,7 @@ public struct MenuBarPopoverView: View {
         )
     }
 
-    // MARK: - Daftar Riwayat Harian
+    // MARK: - Daily History List
     private var historyListView: some View {
         ScrollView {
             LazyVStack(spacing: 6) {
@@ -237,7 +237,7 @@ public struct MenuBarPopoverView: View {
                         Image(systemName: "tray")
                             .font(.system(size: 26))
                             .foregroundColor(.secondary)
-                        Text("Belum ada riwayat pemakaian tercatat.")
+                        Text("No usage history recorded yet.")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
@@ -263,7 +263,7 @@ public struct MenuBarPopoverView: View {
                         .foregroundColor(.primary)
 
                     if record.date == powerMonitor.todayRecord.date {
-                        Text("Hari Ini")
+                        Text("Today")
                             .font(.system(size: 9, weight: .bold))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 1)
@@ -307,14 +307,14 @@ public struct MenuBarPopoverView: View {
         )
     }
 
-    // MARK: - Tab Pengaturan
+    // MARK: - Settings Tab
     private var settingsView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                // Card 1: Tarif Listrik PLN
+                // Card 1: Electricity Rate
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text("Tarif Listrik PLN")
+                        Text("Electricity Rate (PLN)")
                             .font(.system(size: 12, weight: .semibold))
                         Spacer()
                         Text("Rp \(powerMonitor.formattedTariff) / kWh")
@@ -327,34 +327,34 @@ public struct MenuBarPopoverView: View {
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 110)
 
-                        Text("Rp / kWh")
+                        Text("IDR / kWh")
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
                     }
 
                     HStack(spacing: 6) {
-                        Button("R-1 (1.444,70)") {
+                        Button("R-1 (1,444.70)") {
                             powerMonitor.tariffPerKWh = 1444.70
                         }
                         .buttonStyle(.bordered)
                         .tint(powerMonitor.tariffPerKWh == 1444.70 ? .accentColor : nil)
                         .controlSize(.mini)
 
-                        Button("R-2 (1.699,53)") {
+                        Button("R-2 (1,699.53)") {
                             powerMonitor.tariffPerKWh = 1699.53
                         }
                         .buttonStyle(.bordered)
                         .tint(powerMonitor.tariffPerKWh == 1699.53 ? .accentColor : nil)
                         .controlSize(.mini)
 
-                        Button("Bisnis (1.444,70)") {
+                        Button("Business (1,444.70)") {
                             powerMonitor.tariffPerKWh = 1444.70
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.mini)
                     }
 
-                    Text("Default: Rp 1.444,70 / kWh (Tarif PLN R-1 1.300 - 2.200 VA).")
+                    Text("Default: IDR 1,444.70 / kWh (PLN R-1 residential tariff).")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }
@@ -366,20 +366,20 @@ public struct MenuBarPopoverView: View {
                         .stroke(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 0.5)
                 )
 
-                // Card 2: Faktor Efisiensi Adaptor
+                // Card 2: Adapter Efficiency Factor
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text("Faktor Efisiensi Adaptor")
+                        Text("Adapter Efficiency Factor")
                             .font(.system(size: 12, weight: .semibold))
                         Spacer()
-                        Text("\(String(format: "%.2f", powerMonitor.efficiencyFactor))x (Rugi ~\(Int(round((powerMonitor.efficiencyFactor - 1.0) * 100)))%)")
+                        Text("\(String(format: "%.2f", powerMonitor.efficiencyFactor))x (Loss ~\(Int(round((powerMonitor.efficiencyFactor - 1.0) * 100)))%)")
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
                             .foregroundColor(.secondary)
                     }
 
                     Slider(value: $powerMonitor.efficiencyFactor, in: 1.00...1.25, step: 0.01)
 
-                    Text("Kompensasi rugi daya AC-to-DC (default 1.10 = efisiensi 90%).")
+                    Text("Compensates for AC-to-DC conversion loss (default 1.10 = ~90% efficiency).")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }
@@ -398,9 +398,9 @@ public struct MenuBarPopoverView: View {
                         set: { newValue in powerMonitor.toggleLaunchAtLogin(enabled: newValue) }
                     )) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Buka Otomatis saat Mac Dinyalakan")
+                            Text("Launch Automatically at Login")
                                 .font(.system(size: 12, weight: .semibold))
-                            Text("Aplikasi otomatis aktif di Menu Bar saat startup.")
+                            Text("App runs automatically in the Menu Bar on system startup.")
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
@@ -415,12 +415,12 @@ public struct MenuBarPopoverView: View {
                         .stroke(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 0.5)
                 )
 
-                // Card 4: Tombol Aksi
+                // Card 4: Action Buttons
                 VStack(spacing: 8) {
                     Button(action: exportCSVFile) {
                         HStack {
                             Image(systemName: "square.and.arrow.up")
-                            Text("Ekspor Riwayat ke File CSV")
+                            Text("Export History to CSV File")
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -431,7 +431,7 @@ public struct MenuBarPopoverView: View {
                     }) {
                         HStack {
                             Image(systemName: "power")
-                            Text("Keluar dari MacWattTracker")
+                            Text("Quit MacWattTracker")
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -447,7 +447,7 @@ public struct MenuBarPopoverView: View {
     // MARK: - Footer View
     private var footerView: some View {
         HStack {
-            Text("Update tiap 5 detik")
+            Text("Updates every 5s")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
 
@@ -459,12 +459,12 @@ public struct MenuBarPopoverView: View {
         }
     }
 
-    // MARK: - Ekspor CSV Handler
+    // MARK: - CSV Export Handler
     private func exportCSVFile() {
         NSApplication.shared.activate(ignoringOtherApps: true)
 
         let savePanel = NSSavePanel()
-        savePanel.title = "Simpan Riwayat MacWattTracker"
+        savePanel.title = "Save MacWattTracker History"
         savePanel.nameFieldStringValue = "MacWattTracker_History_\(PowerMonitor.formatDateKey(Date())).csv"
         savePanel.allowedContentTypes = [.commaSeparatedText]
 
@@ -472,10 +472,10 @@ public struct MenuBarPopoverView: View {
             if response == .OK, let targetURL = savePanel.url {
                 do {
                     try powerMonitor.exportCSV(to: targetURL)
-                    exportMessage = "Riwayat berhasil diekspor ke:\n\(targetURL.lastPathComponent)"
+                    exportMessage = "History successfully exported to:\n\(targetURL.lastPathComponent)"
                     showingExportAlert = true
                 } catch {
-                    exportMessage = "Gagal mengekspor file: \(error.localizedDescription)"
+                    exportMessage = "Failed to export file: \(error.localizedDescription)"
                     showingExportAlert = true
                 }
             }

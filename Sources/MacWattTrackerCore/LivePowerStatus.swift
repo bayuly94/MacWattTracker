@@ -1,6 +1,6 @@
 import Foundation
 
-/// Model snapshot daya live yang dibagikan dari aplikasi utama ke WidgetKit extension.
+/// Snapshot model of live power data shared between the main app and WidgetKit extension.
 public struct LivePowerStatus: Codable {
     public let isExternalConnected: Bool
     public let currentPlnWatt: Double
@@ -89,18 +89,18 @@ public struct LivePowerStatus: Codable {
             todayWh: 287.4,
             todayKWh: 0.287,
             todayCost: 415.0,
-            todayDuration: "2j 15m",
+            todayDuration: "2h 15m",
             todayPeakWatt: 65.0,
             monthWh: 8895.0,
             monthKWh: 8.895,
             monthCost: 12850.0,
-            monthDuration: "64j 20m",
+            monthDuration: "64h 20m",
             tariffPerKWh: 1444.70,
             recentHistory: [
-                RecentDaySummary(date: "2026-11-24", label: "Hari Ini", kwh: 0.29, cost: 415.0),
-                RecentDaySummary(date: "2026-11-23", label: "Kemarin", kwh: 1.45, cost: 2095.0),
-                RecentDaySummary(date: "2026-11-22", label: "Min, 22 Nov", kwh: 0.98, cost: 1416.0),
-                RecentDaySummary(date: "2026-11-21", label: "Sab, 21 Nov", kwh: 1.82, cost: 2629.0)
+                RecentDaySummary(date: "2026-11-24", label: "Today", kwh: 0.29, cost: 415.0),
+                RecentDaySummary(date: "2026-11-23", label: "Yesterday", kwh: 1.45, cost: 2095.0),
+                RecentDaySummary(date: "2026-11-22", label: "Sun, Nov 22", kwh: 0.98, cost: 1416.0),
+                RecentDaySummary(date: "2026-11-21", label: "Sat, Nov 21", kwh: 1.82, cost: 2629.0)
             ],
             updatedAt: Date()
         )

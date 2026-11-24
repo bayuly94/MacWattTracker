@@ -78,7 +78,7 @@ struct SmallWidgetView: View {
                         Image(systemName: "battery.100")
                             .font(.system(size: 9, weight: .semibold))
                             .foregroundColor(.orange)
-                        Text("Baterai")
+                        Text("Battery")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.orange)
                     }
@@ -100,7 +100,7 @@ struct SmallWidgetView: View {
 
             // Main Cost
             VStack(alignment: .leading, spacing: 1) {
-                Text("HARI INI")
+                Text("TODAY")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.secondary)
 
@@ -113,7 +113,7 @@ struct SmallWidgetView: View {
 
             Spacer()
 
-            // Bottom stats: kWh & Durasi
+            // Bottom stats: kWh & Duration
             HStack {
                 Text(String(format: "%.2f kWh", status.todayKWh))
                     .font(.system(size: 10, weight: .medium))
@@ -137,7 +137,7 @@ struct MediumWidgetView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Kolom Kiri: Live Power & Charger
+            // Left Column: Live Power & Charger
             VStack(alignment: .leading, spacing: 6) {
                 if status.isExternalConnected {
                     HStack(spacing: 5) {
@@ -159,7 +159,7 @@ struct MediumWidgetView: View {
                         Image(systemName: "battery.100")
                             .font(.system(size: 9, weight: .semibold))
                             .foregroundColor(.orange)
-                        Text("Mode Baterai")
+                        Text("Battery Mode")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.orange)
                     }
@@ -182,18 +182,18 @@ struct MediumWidgetView: View {
                         .foregroundColor(.secondary)
                 }
 
-                Text("Tarikan Stopkontak PLN")
+                Text("Wall Outlet Draw")
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
 
                 Spacer()
 
                 if status.isExternalConnected {
-                    Text("Beban: \(String(format: "%.1f", status.systemLoadWatt)) W")
+                    Text("Load: \(String(format: "%.1f", status.systemLoadWatt)) W")
                         .font(.system(size: 9, weight: .medium))
                         .foregroundColor(.secondary)
                 } else {
-                    Text("Pencatatan dijeda")
+                    Text("Tracking paused")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                 }
@@ -203,12 +203,12 @@ struct MediumWidgetView: View {
             Divider()
                 .opacity(0.5)
 
-            // Kolom Kanan: Ringkasan Hari Ini & Bulan Ini
+            // Right Column: Summary Today & This Month
             VStack(alignment: .leading, spacing: 8) {
-                // Hari Ini
+                // Today
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
-                        Text("HARI INI")
+                        Text("TODAY")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.secondary)
                         Spacer()
@@ -230,10 +230,10 @@ struct MediumWidgetView: View {
                 Divider()
                     .opacity(0.4)
 
-                // Bulan Ini
+                // This Month
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
-                        Text("BULAN INI")
+                        Text("THIS MONTH")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.secondary)
                         Spacer()
@@ -291,7 +291,7 @@ struct LargeWidgetView: View {
                 } else {
                     HStack(spacing: 5) {
                         Circle().fill(Color.orange).frame(width: 6, height: 6)
-                        Text("Mode Baterai")
+                        Text("Battery Mode")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.orange)
                     }
@@ -305,7 +305,7 @@ struct LargeWidgetView: View {
             // Big Live Watt Display Banner
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Daya Stopkontak Saat Ini")
+                    Text("Current Wall Outlet Draw")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
 
@@ -323,7 +323,7 @@ struct LargeWidgetView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("Tarif PLN")
+                    Text("Rate")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                     Text("Rp \(String(format: "%.2f", status.tariffPerKWh))")
@@ -335,11 +335,11 @@ struct LargeWidgetView: View {
             .background(Color(NSColor.controlBackgroundColor))
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-            // 2 Summary Cards (Hari Ini & Bulan Ini)
+            // 2 Summary Cards (Today & This Month)
             HStack(spacing: 8) {
-                // Hari Ini
+                // Today
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("HARI INI")
+                    Text("TODAY")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.secondary)
                     Text("Rp \(status.formatCurrency(status.todayCost))")
@@ -354,9 +354,9 @@ struct LargeWidgetView: View {
                 .background(Color(NSColor.controlBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-                // Bulan Ini
+                // This Month
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("BULAN INI")
+                    Text("THIS MONTH")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.secondary)
                     Text("Rp \(status.formatCurrency(status.monthCost))")
@@ -375,14 +375,14 @@ struct LargeWidgetView: View {
             Divider()
                 .opacity(0.4)
 
-            // Riwayat Pemakaian Beberapa Hari Terakhir
+            // Daily History
             VStack(alignment: .leading, spacing: 4) {
-                Text("RIWAYAT PEMAKAIAN HARIAN")
+                Text("DAILY USAGE HISTORY")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.secondary)
 
                 if status.recentHistory.isEmpty {
-                    Text("Belum ada riwayat tercatat.")
+                    Text("No usage history recorded yet.")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 } else {
@@ -438,7 +438,7 @@ struct MacWattTrackerWidget: Widget {
             MacWattTrackerWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("MacWattTracker")
-        .description("Pantau konsumsi daya listrik stopkontak real-time & estimasi biaya token listrik MacBook Pro Anda.")
+        .description("Track real-time wall socket power draw & electricity cost for your MacBook Pro.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
