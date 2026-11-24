@@ -73,10 +73,10 @@ public struct MenuBarPopoverView: View {
     // MARK: - Header View
     private var headerView: some View {
         VStack(spacing: 10) {
-            // Pill Status Badge
-            HStack {
+            // Pill Status Badge & Location Badge
+            HStack(spacing: 6) {
                 if powerMonitor.isExternalConnected {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         Circle()
                             .fill(Color.green)
                             .frame(width: 7, height: 7)
@@ -87,10 +87,27 @@ public struct MenuBarPopoverView: View {
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(.green)
                     }
-                    .padding(.horizontal, 9)
+                    .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Color.green.opacity(0.12))
                     .clipShape(Capsule())
+
+                    // Location Profile Pill Switcher
+                    Button(action: {
+                        powerMonitor.cycleLocationMode()
+                    }) {
+                        HStack(spacing: 4) {
+                            Text(powerMonitor.currentLocation == .home ? "🏠 Home" : "☕️ Outside")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(powerMonitor.currentLocation == .home ? .blue : .orange)
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(powerMonitor.currentLocation == .home ? Color.blue.opacity(0.12) : Color.orange.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Location: \(powerMonitor.currentLocation.rawValue) (\(powerMonitor.locationMode.rawValue)). Click to cycle mode.")
                 } else {
                     HStack(spacing: 6) {
                         Circle()
@@ -136,9 +153,15 @@ public struct MenuBarPopoverView: View {
                 }
 
                 if powerMonitor.isExternalConnected {
-                    Text("Estimated Wall Outlet Draw")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
+                    if powerMonitor.currentLocation == .outside {
+                        Text("Outside Mode • Energy recorded as Free (Rp 0 to home bill)")
+                            .font(.system(size: 11))
+                            .foregroundColor(.orange)
+                    } else {
+                        Text("Estimated Wall Outlet Draw")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
                 } else {
                     Text("On battery • Wall outlet power = 0 W")
                         .font(.system(size: 11))
@@ -168,7 +191,12 @@ public struct MenuBarPopoverView: View {
                 title: "TODAY",
                 icon: "calendar",
                 cost: "Rp \(powerMonitor.formattedTodayCost)",
-                lines: [
+                lines: powerMonitor.todayRecord.outsideWh > 0 ? [
+                    ("Home", powerMonitor.formattedKWh(wh: powerMonitor.todayRecord.homeWh)),
+                    ("Outside", "\(powerMonitor.formattedKWh(wh: powerMonitor.todayRecord.outsideWh)) (Free)"),
+                    ("Duration", powerMonitor.todayRecord.formattedDuration),
+                    ("Peak", String(format: "%.1f W", powerMonitor.todayRecord.peakWatt))
+                ] : [
                     ("Energy", powerMonitor.formattedKWh(wh: powerMonitor.todayRecord.totalWh)),
                     ("Duration", powerMonitor.todayRecord.formattedDuration),
                     ("Peak", String(format: "%.1f W", powerMonitor.todayRecord.peakWatt))
@@ -180,7 +208,12 @@ public struct MenuBarPopoverView: View {
                 title: "THIS MONTH",
                 icon: "chart.bar.fill",
                 cost: "Rp \(powerMonitor.formattedMonthCost)",
-                lines: [
+                lines: powerMonitor.monthOutsideWh > 0 ? [
+                    ("Home", powerMonitor.formattedKWh(wh: powerMonitor.monthHomeWh)),
+                    ("Outside", powerMonitor.formattedKWh(wh: powerMonitor.monthOutsideWh)),
+                    ("Duration", powerMonitor.formatDuration(seconds: powerMonitor.monthActiveSeconds)),
+                    ("Rate", "Rp \(powerMonitor.formattedTariff)/kWh")
+                ] : [
                     ("Energy", powerMonitor.formattedKWh(wh: powerMonitor.monthTotalWh)),
                     ("Duration", powerMonitor.formatDuration(seconds: powerMonitor.monthActiveSeconds)),
                     ("Rate", "Rp \(powerMonitor.formattedTariff)/kWh")
@@ -278,6 +311,12 @@ public struct MenuBarPopoverView: View {
                     Text("•")
                         .foregroundColor(Color(NSColor.tertiaryLabelColor))
                     Text("Peak \(String(format: "%.0f W", record.peakWatt))")
+                    if record.outsideWh > 0 {
+                        Text("•")
+                            .foregroundColor(Color(NSColor.tertiaryLabelColor))
+                        Text("☕️ \(powerMonitor.formattedKWh(wh: record.outsideWh))")
+                            .foregroundColor(.orange)
+                    }
                 }
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
@@ -286,8 +325,8 @@ public struct MenuBarPopoverView: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 3) {
-                let cost = record.calculateCost(tariffPerKWh: powerMonitor.tariffPerKWh)
-                Text("Rp \(powerMonitor.formatCurrency(cost))")
+                let homeCost = record.calculateHomeCost(tariffPerKWh: powerMonitor.tariffPerKWh)
+                Text("Rp \(powerMonitor.formatCurrency(homeCost))")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundColor(.primary)
 
@@ -311,7 +350,120 @@ public struct MenuBarPopoverView: View {
     private var settingsView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                // Card 1: Electricity Rate
+                // Card 1: Location Profiles (Home vs Outside)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "location.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.accentColor)
+                        Text("Location Profiles (Home vs. Outside)")
+                            .font(.system(size: 12, weight: .semibold))
+                        Spacer()
+                        Text(powerMonitor.currentLocation == .home ? "🏠 Home" : "☕️ Outside")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(powerMonitor.currentLocation == .home ? .blue : .orange)
+                    }
+
+                    // Current Wi-Fi Status
+                    HStack {
+                        Image(systemName: "wifi")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Text("Current Network:")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Text(powerMonitor.currentSSID ?? "Disconnected / None")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.primary)
+                    }
+
+                    // Quick button to add/remove current Wi-Fi
+                    if let currentSSID = powerMonitor.currentSSID {
+                        Button(action: {
+                            powerMonitor.toggleCurrentWifiAsHome()
+                        }) {
+                            HStack {
+                                Image(systemName: powerMonitor.isCurrentWifiHome ? "checkmark.circle.fill" : "plus.circle.fill")
+                                Text(powerMonitor.isCurrentWifiHome ? "Current Wi-Fi is Saved as Home" : "Set '\(currentSSID)' as Home Wi-Fi")
+                            }
+                            .font(.system(size: 11, weight: .medium))
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(powerMonitor.isCurrentWifiHome ? .green : .accentColor)
+                        .controlSize(.small)
+                    }
+
+                    // Location Mode Picker
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Detection Mode:")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
+
+                        Picker("", selection: $powerMonitor.locationMode) {
+                            ForEach(LocationMode.allCases, id: \.self) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
+                    // Outside Charging Policy
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Outside Charging Policy:")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
+
+                        Picker("", selection: $powerMonitor.outsidePolicy) {
+                            ForEach(OutsidePolicy.allCases, id: \.self) { policy in
+                                Text(policy.rawValue).tag(policy)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+
+                    // Saved Home Wi-Fi List
+                    if !powerMonitor.homeWifiNetworks.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Saved Home Wi-Fi Networks:")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.secondary)
+
+                            ForEach(powerMonitor.homeWifiNetworks, id: \.self) { ssid in
+                                HStack {
+                                    Image(systemName: "house.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.blue)
+                                    Text(ssid)
+                                        .font(.system(size: 11))
+                                    Spacer()
+                                    Button(action: {
+                                        powerMonitor.removeHomeWifi(ssid)
+                                    }) {
+                                        Image(systemName: "xmark.circle")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        }
+                    }
+
+                    Text("When connected outside Home (e.g. at cafes), power is categorized separately so it doesn't inflate your home PLN electric bill.")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .padding(10)
+                .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 0.5)
+                )
+
+                // Card 2: Electricity Rate
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("Electricity Rate (PLN)")

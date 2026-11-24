@@ -4,6 +4,22 @@ import ServiceManagement
 import WidgetKit
 import MacWattTrackerCore
 
+public enum LocationType: String, Codable {
+    case home = "Home"
+    case outside = "Outside"
+}
+
+public enum LocationMode: String, CaseIterable, Codable {
+    case auto = "Auto (Wi-Fi)"
+    case forceHome = "Always Home (🏠)"
+    case forceOutside = "Always Outside (☕️)"
+}
+
+public enum OutsidePolicy: String, CaseIterable, Codable {
+    case free = "Free (Rp 0 - Won't affect home bill)"
+    case pause = "Pause tracking when outside"
+}
+
 /// Kelas utama pemantau konsumsi daya listrik real-time dari stopkontak (PLN)
 /// mengeksekusi `/usr/sbin/ioreg -rw0 -c AppleSmartBattery` secara berkala (5 detik).
 public final class PowerMonitor: ObservableObject {
@@ -19,8 +35,31 @@ public final class PowerMonitor: ObservableObject {
     @Published public var todayRecord: DailyRecord
     @Published public var historyRecords: [DailyRecord] = []
     @Published public var monthTotalWh: Double = 0.0
+    @Published public var monthHomeWh: Double = 0.0
+    @Published public var monthOutsideWh: Double = 0.0
     @Published public var monthActiveSeconds: Int = 0
     @Published public var isLaunchAtLogin: Bool = false
+
+    // MARK: - Location Tracking
+    @Published public var currentSSID: String? = nil
+    @Published public var currentLocation: LocationType = .home
+    @Published public var homeWifiNetworks: [String] {
+        didSet {
+            UserDefaults.standard.set(homeWifiNetworks, forKey: "homeWifiNetworks")
+            updateCurrentLocation()
+        }
+    }
+    @Published public var locationMode: LocationMode {
+        didSet {
+            UserDefaults.standard.set(locationMode.rawValue, forKey: "locationMode")
+            updateCurrentLocation()
+        }
+    }
+    @Published public var outsidePolicy: OutsidePolicy {
+        didSet {
+            UserDefaults.standard.set(outsidePolicy.rawValue, forKey: "outsidePolicy")
+        }
+    }
 
     // MARK: - Pengaturan (Persisted via UserDefaults)
     @Published public var tariffPerKWh: Double {
@@ -55,6 +94,13 @@ public final class PowerMonitor: ObservableObject {
 
         let savedEfficiency = UserDefaults.standard.double(forKey: "efficiencyFactor")
         self.efficiencyFactor = savedEfficiency > 0 ? savedEfficiency : 1.10 // Default rugi daya adaptor ~10%
+
+        // Load Location Preferences
+        self.homeWifiNetworks = UserDefaults.standard.stringArray(forKey: "homeWifiNetworks") ?? []
+        let rawMode = UserDefaults.standard.string(forKey: "locationMode") ?? ""
+        self.locationMode = LocationMode(rawValue: rawMode) ?? .auto
+        let rawPolicy = UserDefaults.standard.string(forKey: "outsidePolicy") ?? ""
+        self.outsidePolicy = OutsidePolicy(rawValue: rawPolicy) ?? .free
 
         let todayStr = Self.formatDateKey(Date())
         self.todayRecord = historyStore.getRecord(for: todayStr)
@@ -126,6 +172,8 @@ public final class PowerMonitor: ObservableObject {
             process.standardOutput = pipe
             process.standardError = Pipe() // Buang stderr
 
+            let detectedSSID = Self.detectCurrentSSID()
+
             do {
                 try process.run()
                 process.waitUntilExit()
@@ -133,14 +181,14 @@ public final class PowerMonitor: ObservableObject {
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 guard let output = String(data: data, encoding: .utf8) else { return }
 
-                self.processIoregOutput(output)
+                self.processIoregOutput(output, detectedSSID: detectedSSID)
             } catch {
                 print("[MacWattTracker] Gagal menjalankan /usr/sbin/ioreg: \(error)")
             }
         }
     }
 
-    private func processIoregOutput(_ output: String) {
+    private func processIoregOutput(_ output: String, detectedSSID: String?) {
         let now = Date()
         let todayStr = Self.formatDateKey(now)
 
@@ -153,6 +201,9 @@ public final class PowerMonitor: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
 
+            self.currentSSID = detectedSSID
+            self.updateCurrentLocation()
+
             // Periksa pergantian hari kalender
             if self.todayRecord.date != todayStr {
                 self.todayRecord = self.historyStore.getRecord(for: todayStr)
@@ -163,34 +214,43 @@ public final class PowerMonitor: ObservableObject {
 
             if isConnected {
                 // ---- KONDISI: TERHUBUNG KE CHARGER ----
+                let isOutsidePaused = (self.currentLocation == .outside && self.outsidePolicy == .pause)
                 let rawWatt = (pIn_mW > 0 ? Double(pIn_mW) : Double(pLoad_mW)) / 1000.0
                 let plnWatt = rawWatt * self.efficiencyFactor
 
-                if let lastTime = self.lastSampleTime {
-                    let dt = now.timeIntervalSince(lastTime)
-
-                    // Proteksi Sleep/Wake: Jika selisih waktu > 60 detik, abaikan interval
-                    if dt > 0 && dt <= 60.0 {
-                        let energyWh = plnWatt * (dt / 3600.0)
-                        self.todayRecord.totalWh += energyWh
-                        self.todayRecord.activeSeconds += Int(round(dt))
-                        self.todayRecord.peakWatt = max(self.todayRecord.peakWatt, plnWatt)
-
-                        self.historyStore.updateRecord(self.todayRecord)
-                    } else {
-                        // Selisih > 60 detik: Mac baru saja wake atau terjadi jeda panjang,
-                        // jangan akumulasikan Wh atau durasi aktif.
-                    }
+                if isOutsidePaused {
+                    self.currentPlnWatt = 0.0
+                    self.lastSampleTime = now
                 } else {
-                    // Sampel pertama setelah charger dicolok atau setelah bangun tidur
-                    if plnWatt > self.todayRecord.peakWatt {
-                        self.todayRecord.peakWatt = plnWatt
-                        self.historyStore.updateRecord(self.todayRecord)
+                    if let lastTime = self.lastSampleTime {
+                        let dt = now.timeIntervalSince(lastTime)
+
+                        // Proteksi Sleep/Wake: Jika selisih waktu > 60 detik, abaikan interval
+                        if dt > 0 && dt <= 60.0 {
+                            let energyWh = plnWatt * (dt / 3600.0)
+                            if self.currentLocation == .home {
+                                self.todayRecord.homeWh += energyWh
+                            } else {
+                                self.todayRecord.outsideWh += energyWh
+                            }
+                            self.todayRecord.totalWh += energyWh
+                            self.todayRecord.activeSeconds += Int(round(dt))
+                            self.todayRecord.peakWatt = max(self.todayRecord.peakWatt, plnWatt)
+
+                            self.historyStore.updateRecord(self.todayRecord)
+                        }
+                    } else {
+                        // Sampel pertama setelah charger dicolok atau setelah bangun tidur
+                        if plnWatt > self.todayRecord.peakWatt {
+                            self.todayRecord.peakWatt = plnWatt
+                            self.historyStore.updateRecord(self.todayRecord)
+                        }
                     }
+
+                    self.lastSampleTime = now
+                    self.currentPlnWatt = plnWatt
                 }
 
-                self.lastSampleTime = now
-                self.currentPlnWatt = plnWatt
                 self.systemLoadWatt = Double(pLoad_mW) / 1000.0
                 self.systemPowerInWatt = Double(pIn_mW) / 1000.0
                 self.adapterWatts = parsedWatts
@@ -247,11 +307,98 @@ public final class PowerMonitor: ObservableObject {
         return (pIn, pLoad, watts, name)
     }
 
+    // MARK: - Location Management
+
+    public func updateCurrentLocation() {
+        let ssid = currentSSID
+        switch locationMode {
+        case .forceHome:
+            currentLocation = .home
+        case .forceOutside:
+            currentLocation = .outside
+        case .auto:
+            if homeWifiNetworks.isEmpty {
+                // Default to Home if no home network has been configured yet
+                currentLocation = .home
+            } else if let ssid = ssid, homeWifiNetworks.contains(ssid) {
+                currentLocation = .home
+            } else {
+                currentLocation = .outside
+            }
+        }
+    }
+
+    public static func detectCurrentSSID() -> String? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/ipconfig")
+        process.arguments = ["getsummary", "en0"]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                for line in output.components(separatedBy: "\n") {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    if trimmed.hasPrefix("SSID : ") {
+                        let ssid = String(trimmed.dropFirst("SSID : ".count)).trimmingCharacters(in: .whitespaces)
+                        return ssid.isEmpty ? nil : ssid
+                    }
+                }
+            }
+        } catch {
+            return nil
+        }
+        return nil
+    }
+
+    public var isCurrentWifiHome: Bool {
+        guard let ssid = currentSSID else { return false }
+        return homeWifiNetworks.contains(ssid)
+    }
+
+    public func toggleCurrentWifiAsHome() {
+        guard let ssid = currentSSID else { return }
+        if homeWifiNetworks.contains(ssid) {
+            homeWifiNetworks.removeAll(where: { $0 == ssid })
+        } else {
+            homeWifiNetworks.append(ssid)
+        }
+    }
+
+    public func addHomeWifi(_ ssid: String) {
+        let trimmed = ssid.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !homeWifiNetworks.contains(trimmed) else { return }
+        homeWifiNetworks.append(trimmed)
+    }
+
+    public func removeHomeWifi(_ ssid: String) {
+        homeWifiNetworks.removeAll(where: { $0 == ssid })
+    }
+
+    public func cycleLocationMode() {
+        switch locationMode {
+        case .auto:
+            locationMode = .forceHome
+        case .forceHome:
+            locationMode = .forceOutside
+        case .forceOutside:
+            locationMode = .auto
+        }
+    }
+
     // MARK: - Agregasi & Refresh
 
     public func refreshMonthlyAndHistory() {
         let yearMonth = Self.formatYearMonthKey(Date())
         self.monthTotalWh = historyStore.monthlyWh(for: yearMonth)
+        self.monthHomeWh = historyStore.monthlyHomeWh(for: yearMonth)
+        self.monthOutsideWh = historyStore.monthlyOutsideWh(for: yearMonth)
         self.monthActiveSeconds = historyStore.monthlyActiveSeconds(for: yearMonth)
         self.historyRecords = historyStore.allRecordsSortedDesc()
         saveLiveStatusSnapshot()
@@ -262,8 +409,8 @@ public final class PowerMonitor: ObservableObject {
             RecentDaySummary(
                 date: r.date,
                 label: r.friendlyDateLabel,
-                kwh: r.totalKWh,
-                cost: r.calculateCost(tariffPerKWh: tariffPerKWh)
+                kwh: r.homeKWh,
+                cost: r.calculateHomeCost(tariffPerKWh: tariffPerKWh)
             )
         }
 
@@ -272,14 +419,20 @@ public final class PowerMonitor: ObservableObject {
             currentPlnWatt: currentPlnWatt,
             systemLoadWatt: systemLoadWatt,
             adapterRating: displayAdapterRating,
+            currentLocation: currentLocation.rawValue,
+            currentSSID: currentSSID,
             todayWh: todayRecord.totalWh,
+            todayHomeWh: todayRecord.homeWh,
+            todayOutsideWh: todayRecord.outsideWh,
             todayKWh: todayRecord.totalKWh,
-            todayCost: todayRecord.calculateCost(tariffPerKWh: tariffPerKWh),
+            todayCost: todayRecord.calculateHomeCost(tariffPerKWh: tariffPerKWh),
             todayDuration: todayRecord.formattedDuration,
             todayPeakWatt: todayRecord.peakWatt,
             monthWh: monthTotalWh,
+            monthHomeWh: monthHomeWh,
+            monthOutsideWh: monthOutsideWh,
             monthKWh: monthTotalWh / 1000.0,
-            monthCost: (monthTotalWh / 1000.0) * tariffPerKWh,
+            monthCost: (monthHomeWh / 1000.0) * tariffPerKWh,
             monthDuration: formatDuration(seconds: monthActiveSeconds),
             tariffPerKWh: tariffPerKWh,
             recentHistory: Array(recent),
@@ -324,12 +477,12 @@ public final class PowerMonitor: ObservableObject {
     }
 
     public var formattedTodayCost: String {
-        let cost = todayRecord.calculateCost(tariffPerKWh: tariffPerKWh)
+        let cost = todayRecord.calculateHomeCost(tariffPerKWh: tariffPerKWh)
         return formatCurrency(cost)
     }
 
     public var formattedMonthCost: String {
-        let cost = (monthTotalWh / 1000.0) * tariffPerKWh
+        let cost = (monthHomeWh / 1000.0) * tariffPerKWh
         return formatCurrency(cost)
     }
 

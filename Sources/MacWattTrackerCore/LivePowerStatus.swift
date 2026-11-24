@@ -6,12 +6,18 @@ public struct LivePowerStatus: Codable {
     public let currentPlnWatt: Double
     public let systemLoadWatt: Double
     public let adapterRating: String
+    public let currentLocation: String
+    public let currentSSID: String?
     public let todayWh: Double
+    public let todayHomeWh: Double
+    public let todayOutsideWh: Double
     public let todayKWh: Double
     public let todayCost: Double
     public let todayDuration: String
     public let todayPeakWatt: Double
     public let monthWh: Double
+    public let monthHomeWh: Double
+    public let monthOutsideWh: Double
     public let monthKWh: Double
     public let monthCost: Double
     public let monthDuration: String
@@ -24,12 +30,18 @@ public struct LivePowerStatus: Codable {
         currentPlnWatt: Double,
         systemLoadWatt: Double,
         adapterRating: String,
+        currentLocation: String = "Home",
+        currentSSID: String? = nil,
         todayWh: Double,
+        todayHomeWh: Double? = nil,
+        todayOutsideWh: Double = 0.0,
         todayKWh: Double,
         todayCost: Double,
         todayDuration: String,
         todayPeakWatt: Double,
         monthWh: Double,
+        monthHomeWh: Double? = nil,
+        monthOutsideWh: Double = 0.0,
         monthKWh: Double,
         monthCost: Double,
         monthDuration: String,
@@ -41,12 +53,18 @@ public struct LivePowerStatus: Codable {
         self.currentPlnWatt = currentPlnWatt
         self.systemLoadWatt = systemLoadWatt
         self.adapterRating = adapterRating
+        self.currentLocation = currentLocation
+        self.currentSSID = currentSSID
         self.todayWh = todayWh
+        self.todayHomeWh = todayHomeWh ?? todayWh
+        self.todayOutsideWh = todayOutsideWh
         self.todayKWh = todayKWh
         self.todayCost = todayCost
         self.todayDuration = todayDuration
         self.todayPeakWatt = todayPeakWatt
         self.monthWh = monthWh
+        self.monthHomeWh = monthHomeWh ?? monthWh
+        self.monthOutsideWh = monthOutsideWh
         self.monthKWh = monthKWh
         self.monthCost = monthCost
         self.monthDuration = monthDuration
@@ -86,12 +104,18 @@ public struct LivePowerStatus: Codable {
             currentPlnWatt: 18.5,
             systemLoadWatt: 16.8,
             adapterRating: "140W",
+            currentLocation: "Home",
+            currentSSID: "Home_WiFi",
             todayWh: 287.4,
+            todayHomeWh: 287.4,
+            todayOutsideWh: 0.0,
             todayKWh: 0.287,
             todayCost: 415.0,
             todayDuration: "2h 15m",
             todayPeakWatt: 65.0,
             monthWh: 8895.0,
+            monthHomeWh: 8895.0,
+            monthOutsideWh: 0.0,
             monthKWh: 8.895,
             monthCost: 12850.0,
             monthDuration: "64h 20m",

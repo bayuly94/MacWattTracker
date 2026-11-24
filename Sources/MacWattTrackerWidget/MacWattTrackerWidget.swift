@@ -65,7 +65,7 @@ struct SmallWidgetView: View {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.green)
-                        Text(status.adapterRating)
+                        Text("\(status.currentLocation == "Home" ? "🏠" : "☕️") \(status.adapterRating)")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.green)
                     }
@@ -145,7 +145,7 @@ struct MediumWidgetView: View {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(.green)
-                        Text("Charger (\(status.adapterRating))")
+                        Text("Charger (\(status.adapterRating)) \(status.currentLocation == "Home" ? "🏠" : "☕️")")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.green)
                     }
@@ -280,7 +280,7 @@ struct LargeWidgetView: View {
                 if status.isExternalConnected {
                     HStack(spacing: 5) {
                         Circle().fill(Color.green).frame(width: 6, height: 6)
-                        Text("Charger (\(status.adapterRating))")
+                        Text("Charger (\(status.adapterRating)) \(status.currentLocation == "Home" ? "🏠" : "☕️")")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.green)
                     }

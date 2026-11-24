@@ -130,6 +130,24 @@ public final class HistoryStore {
         }
     }
 
+    /// Mengakumulasi total Wh pemakaian Rumah untuk bulan tertentu ("yyyy-MM")
+    public func monthlyHomeWh(for yearMonth: String) -> Double {
+        return queue.sync {
+            inMemoryRecords.values
+                .filter { $0.date.hasPrefix(yearMonth) }
+                .reduce(0.0) { $0 + $1.homeWh }
+        }
+    }
+
+    /// Mengakumulasi total Wh pemakaian Luar / Kafe untuk bulan tertentu ("yyyy-MM")
+    public func monthlyOutsideWh(for yearMonth: String) -> Double {
+        return queue.sync {
+            inMemoryRecords.values
+                .filter { $0.date.hasPrefix(yearMonth) }
+                .reduce(0.0) { $0 + $1.outsideWh }
+        }
+    }
+
     /// Mengakumulasi total durasi detik aktif tercolok charger untuk bulan tertentu ("yyyy-MM")
     public func monthlyActiveSeconds(for yearMonth: String) -> Int {
         return queue.sync {
@@ -142,12 +160,13 @@ public final class HistoryStore {
     /// Export history records to CSV formatted string
     public func exportCSV(tariffPerKWh: Double) -> String {
         return queue.sync {
-            var csv = "Date,Label,Active Duration,Active Seconds,Peak Watt (W),Energy (Wh),Energy (kWh),Tariff (IDR/kWh),Estimated Cost (IDR)\n"
+            var csv = "Date,Label,Active Duration,Active Seconds,Peak Watt (W),Total Energy (Wh),Home Energy (Wh),Outside Energy (Wh),Total kWh,Home kWh,Outside kWh,Tariff (IDR/kWh),Home Cost (IDR),Outside Value (IDR)\n"
             let sorted = Array(inMemoryRecords.values).sorted(by: { $0.date > $1.date })
 
             for r in sorted {
-                let cost = r.calculateCost(tariffPerKWh: tariffPerKWh)
-                let row = "\"\(r.date)\",\"\(r.friendlyDateLabel)\",\"\(r.formattedDuration)\",\(r.activeSeconds),\(String(format: "%.1f", r.peakWatt)),\(String(format: "%.2f", r.totalWh)),\(String(format: "%.4f", r.totalKWh)),\(String(format: "%.2f", tariffPerKWh)),\(Int(round(cost)))\n"
+                let homeCost = r.calculateHomeCost(tariffPerKWh: tariffPerKWh)
+                let outsideVal = r.calculateOutsideValue(tariffPerKWh: tariffPerKWh)
+                let row = "\"\(r.date)\",\"\(r.friendlyDateLabel)\",\"\(r.formattedDuration)\",\(r.activeSeconds),\(String(format: "%.1f", r.peakWatt)),\(String(format: "%.2f", r.totalWh)),\(String(format: "%.2f", r.homeWh)),\(String(format: "%.2f", r.outsideWh)),\(String(format: "%.4f", r.totalKWh)),\(String(format: "%.4f", r.homeKWh)),\(String(format: "%.4f", r.outsideKWh)),\(String(format: "%.2f", tariffPerKWh)),\(Int(round(homeCost))),\(Int(round(outsideVal)))\n"
                 csv.append(row)
             }
             return csv

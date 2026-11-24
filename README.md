@@ -94,7 +94,7 @@ The app continuously aggregates energy consumption (**Wh & kWh**), calculates da
 
 ### 8. Native macOS Widgets (Small, Medium, & Large)
 MacWattTracker includes a native **WidgetKit Extension** that can be placed on your **macOS Desktop** or in the **Notification Center**:
-- **Small Widget:** Displays current charger status (`⚡ 140W`), live wall outlet wattage, today's electricity cost (`Rp ...`), duration, and kWh.
+- **Small Widget:** Displays current charger status (`⚡ 140W`), live wall outlet wattage, today's electricity cost (`Rp ...`), duration, and kWh with active location badge (`🏠` / `☕️`).
 - **Medium Widget:** 2-column layout comparing real-time power draw with comprehensive Today and This Month summaries.
 - **Large Widget:** Full dashboard featuring current power draw, tariff details, dual summary cards, and a recent daily history list.
 
@@ -102,6 +102,16 @@ MacWattTracker includes a native **WidgetKit Extension** that can be placed on y
 1. Right-click any empty space on your **macOS Desktop** and select **"Edit Widgets..."** (or open Notification Center and click **"Edit Widgets"** at the bottom).
 2. Select **MacWattTracker** from the app list on the left.
 3. Choose your preferred widget size (**Small**, **Medium**, or **Large**), then drag it onto your Desktop.
+
+### 9. Smart Location Profiles (Home vs. Outside / Cafe)
+Never worry about mixing cafe or office charging into your personal home electricity bill:
+- **Instant Wi-Fi-Based Auto-Detection:** Automatically detects your connected Wi-Fi network with zero-latency and without requesting intrusive GPS permissions.
+- **Bill Separation:**
+  - **🏠 Home Mode:** Your configured PLN residential tariff is applied to your estimated bill.
+  - **☕️ Outside Mode (Cafe, Office, Co-working):** Energy (Wh & kWh) is tracked and cataloged as **Free (Rp 0)**, keeping your home electricity bill 100% accurate.
+- **Flexible Policies:** In Settings, choose between *"Free (Rp 0 - Won't affect home bill)"* or *"Pause tracking when outside"*.
+- **Quick Location Switcher:** Click the location pill in the popover header anytime to cycle between `Auto (Wi-Fi)`, `Always Home`, or `Always Outside`.
+- **One-Click Home Wi-Fi Setup:** Add or remove the current Wi-Fi network with a single click in the Settings tab.
 
 ---
 
@@ -111,9 +121,9 @@ $$\text{Wall Power (Watts)} = \frac{\text{SystemPowerIn (mW)}}{1000} \times \tex
 
 $$\text{Energy Consumed (Wh)} = \sum \left( \text{Wall Watts} \times \frac{\Delta t}{3600} \right)$$
 
-$$\text{Total kWh} = \frac{\text{Total Wh}}{1000}$$
+$$\text{Home kWh} = \frac{\text{Home Wh}}{1000}, \quad \text{Outside kWh} = \frac{\text{Outside Wh}}{1000}$$
 
-$$\text{Estimated Cost (IDR)} = \text{Total kWh} \times \text{Tariff per kWh (IDR 1,444.70)}$$
+$$\text{Estimated Home Bill (IDR)} = \text{Home kWh} \times \text{Tariff per kWh (IDR 1,444.70)}$$
 
 ---
 
