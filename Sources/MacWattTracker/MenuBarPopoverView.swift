@@ -61,7 +61,7 @@ public struct MenuBarPopoverView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
         }
-        .frame(width: 360, height: 680)
+        .frame(width: 360, height: 600)
         .background(Color(NSColor.windowBackgroundColor))
         .alert("Export CSV", isPresented: $showingExportAlert) {
             Button("OK", role: .cancel) { }
@@ -518,32 +518,7 @@ public struct MenuBarPopoverView: View {
                         .stroke(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 0.5)
                 )
 
-                // Card 2: Adapter Efficiency Factor
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Adapter Efficiency Factor")
-                            .font(.system(size: 12, weight: .semibold))
-                        Spacer()
-                        Text("\(String(format: "%.2f", powerMonitor.efficiencyFactor))x (Loss ~\(Int(round((powerMonitor.efficiencyFactor - 1.0) * 100)))%)")
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-
-                    Slider(value: $powerMonitor.efficiencyFactor, in: 1.00...1.25, step: 0.01)
-
-                    Text("Compensates for AC-to-DC conversion loss (default 1.10 = ~90% efficiency).")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-                .padding(10)
-                .background(Color(NSColor.controlBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 0.5)
-                )
-
-                // Card 3: Auto Start
+                // Card 2: Auto Start
                 VStack(alignment: .leading, spacing: 6) {
                     Toggle(isOn: Binding(
                         get: { powerMonitor.isLaunchAtLogin },
@@ -566,48 +541,40 @@ public struct MenuBarPopoverView: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 0.5)
                 )
-
-                // Card 4: Action Buttons
-                VStack(spacing: 8) {
-                    Button(action: exportCSVFile) {
-                        HStack {
-                            Image(systemName: "square.and.arrow.up")
-                            Text("Export History to CSV File")
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button(role: .destructive, action: {
-                        NSApplication.shared.terminate(nil)
-                    }) {
-                        HStack {
-                            Image(systemName: "power")
-                            Text("Quit MacWattTracker")
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.red)
-                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
     }
 
-    // MARK: - Footer View
+    // MARK: - Footer View (Updates info & bottom right icon actions)
     private var footerView: some View {
-        HStack {
-            Text("Updates every 5s")
+        HStack(alignment: .center) {
+            Text("Updates every 5s • v0.1.0")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
 
             Spacer()
 
-            Text("MacWattTracker v0.1.0 • Native")
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
+            HStack(spacing: 12) {
+                Button(action: exportCSVFile) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Export History to CSV File")
+
+                Button(role: .destructive, action: {
+                    NSApplication.shared.terminate(nil)
+                }) {
+                    Image(systemName: "power")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.red.opacity(0.85))
+                }
+                .buttonStyle(.plain)
+                .help("Quit MacWattTracker")
+            }
         }
     }
 

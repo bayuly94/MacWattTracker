@@ -68,11 +68,8 @@ public final class PowerMonitor: ObservableObject {
         }
     }
 
-    @Published public var efficiencyFactor: Double {
-        didSet {
-            UserDefaults.standard.set(efficiencyFactor, forKey: "efficiencyFactor")
-        }
-    }
+    /// Standard Apple USB-C power adapter conversion efficiency compensation factor (~90% efficiency)
+    public let efficiencyFactor: Double = 1.10
 
     // MARK: - Internal State
     private let historyStore = HistoryStore.shared
@@ -91,9 +88,6 @@ public final class PowerMonitor: ObservableObject {
         } else {
             self.tariffPerKWh = savedTariff
         }
-
-        let savedEfficiency = UserDefaults.standard.double(forKey: "efficiencyFactor")
-        self.efficiencyFactor = savedEfficiency > 0 ? savedEfficiency : 1.10 // Default rugi daya adaptor ~10%
 
         // Load Location Preferences
         self.homeWifiNetworks = UserDefaults.standard.stringArray(forKey: "homeWifiNetworks") ?? []
