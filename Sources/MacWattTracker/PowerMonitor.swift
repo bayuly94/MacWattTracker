@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import ServiceManagement
 import WidgetKit
+import CoreLocation
 import MacWattTrackerCore
 
 public enum LocationType: String, Codable {
@@ -82,6 +83,15 @@ public final class PowerMonitor: ObservableObject {
     @Published public var profiles: [LocationProfile] = []
     @Published public var wifiProfileMap: [String: String] = [:]
     @Published public var lastPromptedSSID: String? = nil
+
+    // MARK: - GPS Location & Safe Radius Detection
+    @Published public var homeLatitude: Double? = nil
+    @Published public var homeLongitude: Double? = nil
+    @Published public var homeRadiusMeters: Double = 150.0
+    @Published public var currentLatitude: Double? = nil
+    @Published public var currentLongitude: Double? = nil
+    @Published public var distanceFromHome: Double? = nil
+    @Published public var isGpsActive: Bool = false
 
     public var allAvailableProfiles: [LocationProfile] {
         profiles
@@ -164,6 +174,14 @@ public final class PowerMonitor: ObservableObject {
         // Load wifiProfileMap
         self.wifiProfileMap = UserDefaults.standard.dictionary(forKey: "wifiProfileMap") as? [String: String] ?? [:]
 
+        // Load Home GPS & Safe Radius
+        if UserDefaults.standard.object(forKey: "homeLatitude") != nil {
+            self.homeLatitude = UserDefaults.standard.double(forKey: "homeLatitude")
+            self.homeLongitude = UserDefaults.standard.double(forKey: "homeLongitude")
+        }
+        let savedRadius = UserDefaults.standard.double(forKey: "homeRadiusMeters")
+        self.homeRadiusMeters = savedRadius > 0 ? savedRadius : 150.0
+
         let todayStr = Self.formatDateKey(Date())
         self.todayRecord = historyStore.getRecord(for: todayStr)
 
@@ -171,6 +189,7 @@ public final class PowerMonitor: ObservableObject {
         refreshMonthlyAndHistory()
         checkLaunchAtLoginStatus()
         startMonitoring()
+        LocationManager.shared.start()
     }
 
     deinit {
@@ -369,40 +388,111 @@ public final class PowerMonitor: ObservableObject {
         return (pIn, pLoad, watts, name)
     }
 
-    // MARK: - Location & Profile Management
+    // MARK: - Location & GPS Management
 
     public func updateCurrentLocation() {
+        // 1. If GPS is active and Home coordinates are configured, use GPS with safe radius
+        if let currentLat = currentLatitude, let currentLon = currentLongitude,
+           let homeLat = homeLatitude, let homeLon = homeLongitude {
+            let homeLoc = CLLocation(latitude: homeLat, longitude: homeLon)
+            let currentLoc = CLLocation(latitude: currentLat, longitude: currentLon)
+            let dist = currentLoc.distance(from: homeLoc)
+            self.distanceFromHome = dist
+
+            if dist <= homeRadiusMeters {
+                currentLocation = .home
+                activeProfileName = "Home"
+            } else {
+                currentLocation = .outside
+                activeProfileName = "Outside"
+            }
+            return
+        }
+
+        // 2. Fallback if GPS is still acquiring or not authorized
         guard let ssid = currentSSID, !ssid.isEmpty else {
             activeProfileName = "Outside"
             currentLocation = .outside
             return
         }
 
-        // 1. Initial rule: The very first Wi-Fi network encountered is automatically Home
-        if wifiProfileMap.isEmpty {
-            let homeProfile = profiles.first(where: { $0.isHomeBilling })?.name ?? "Home"
-            wifiProfileMap[ssid] = homeProfile
-            UserDefaults.standard.set(wifiProfileMap, forKey: "wifiProfileMap")
-            activeProfileName = homeProfile
-            currentLocation = .home
+        if let assignedName = wifiProfileMap[ssid] {
+            activeProfileName = assignedName
+            let isHome = (assignedName == "Home")
+            currentLocation = isHome ? .home : .outside
+        } else {
+            activeProfileName = "Outside"
+            currentLocation = .outside
+        }
+    }
+
+    // MARK: - GPS Home & Safe Radius Controls
+
+    public func setHomeLocationToCurrent() {
+        guard let loc = LocationManager.shared.lastLocation else {
+            LocationManager.shared.requestPermission()
+            return
+        }
+        setHomeLocation(latitude: loc.coordinate.latitude, longitude: loc.coordinate.longitude)
+    }
+
+    public func setHomeLocation(latitude: Double, longitude: Double) {
+        self.homeLatitude = latitude
+        self.homeLongitude = longitude
+        UserDefaults.standard.set(latitude, forKey: "homeLatitude")
+        UserDefaults.standard.set(longitude, forKey: "homeLongitude")
+        if let current = LocationManager.shared.lastLocation {
+            handleGPSLocationUpdate(current)
+        } else {
+            updateCurrentLocation()
+        }
+    }
+
+    public func resetHomeLocation() {
+        self.homeLatitude = nil
+        self.homeLongitude = nil
+        self.distanceFromHome = nil
+        UserDefaults.standard.removeObject(forKey: "homeLatitude")
+        UserDefaults.standard.removeObject(forKey: "homeLongitude")
+        updateCurrentLocation()
+    }
+
+    public func setHomeRadius(meters: Double) {
+        self.homeRadiusMeters = meters
+        UserDefaults.standard.set(meters, forKey: "homeRadiusMeters")
+        if let current = LocationManager.shared.lastLocation {
+            handleGPSLocationUpdate(current)
+        } else {
+            updateCurrentLocation()
+        }
+    }
+
+    public func handleGPSLocationUpdate(_ location: CLLocation) {
+        self.isGpsActive = true
+        self.currentLatitude = location.coordinate.latitude
+        self.currentLongitude = location.coordinate.longitude
+
+        // First time setup: Automatically calibrate first detected location as Home!
+        if homeLatitude == nil || homeLongitude == nil {
+            setHomeLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+            self.currentLocation = .home
+            self.activeProfileName = "Home"
+            self.distanceFromHome = 0.0
             return
         }
 
-        // 2. Check if this Wi-Fi network is already saved
-        if let assignedName = wifiProfileMap[ssid] {
-            activeProfileName = assignedName
-            let profile = allAvailableProfiles.first(where: { $0.name == assignedName })
-            currentLocation = (profile?.isHomeBilling ?? (assignedName == "Home")) ? .home : .outside
-        } else {
-            // 3. Any other Wi-Fi: default to Outside
-            activeProfileName = "Outside"
-            currentLocation = .outside
+        guard let homeLat = homeLatitude, let homeLon = homeLongitude else { return }
+        let homeLoc = CLLocation(latitude: homeLat, longitude: homeLon)
+        let dist = location.distance(from: homeLoc)
+        self.distanceFromHome = dist
 
-            // Show popup dialog prompt to select or create profile
-            if lastPromptedSSID != ssid {
-                lastPromptedSSID = ssid
-                WifiProfileDialogManager.shared.showDialog(ssid: ssid)
-            }
+        // Safe radius check: Within radius -> Home (PLN rate), Outside -> Free
+        if dist <= homeRadiusMeters {
+            self.currentLocation = .home
+            self.activeProfileName = "Home"
+        } else {
+            self.currentLocation = .outside
+            self.activeProfileName = "Outside"
         }
     }
 

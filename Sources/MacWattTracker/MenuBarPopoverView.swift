@@ -10,11 +10,6 @@ public struct MenuBarPopoverView: View {
     @State private var selectedTab: Int = 0
     @State private var exportMessage: String? = nil
     @State private var showingExportAlert: Bool = false
-    @State private var newProfileName: String = ""
-    @State private var newProfileIsHome: Bool = false
-    @State private var editingProfileId: UUID? = nil
-    @State private var editingProfileName: String = ""
-    @State private var editingProfileIsHome: Bool = false
 
     public init(powerMonitor: PowerMonitor) {
         self.powerMonitor = powerMonitor
@@ -97,22 +92,17 @@ public struct MenuBarPopoverView: View {
                     .background(Color.green.opacity(0.12))
                     .clipShape(Capsule())
 
-                    // Location Profile Pill Switcher
-                    Button(action: {
-                        powerMonitor.openProfileDialogForCurrentWifi()
-                    }) {
-                        HStack(spacing: 4) {
-                            Text(powerMonitor.currentLocation == .home ? "🏠 \(powerMonitor.activeProfileName)" : "☕️ \(powerMonitor.activeProfileName)")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(powerMonitor.currentLocation == .home ? .blue : .orange)
-                        }
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 4)
-                        .background(powerMonitor.currentLocation == .home ? Color.blue.opacity(0.12) : Color.orange.opacity(0.12))
-                        .clipShape(Capsule())
+                    // Location Pill (GPS Auto Detected)
+                    HStack(spacing: 4) {
+                        Text(powerMonitor.currentLocation == .home ? "🏠 Home" : "☕️ Outside")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(powerMonitor.currentLocation == .home ? .blue : .orange)
                     }
-                    .buttonStyle(.plain)
-                    .help("Active profile: \(powerMonitor.activeProfileName). Click to change profile.")
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(powerMonitor.currentLocation == .home ? Color.blue.opacity(0.12) : Color.orange.opacity(0.12))
+                    .clipShape(Capsule())
+                    .help(powerMonitor.currentLocation == .home ? "Home Location (PLN Rate)" : "Outside Location (Free / Rp 0)")
                 } else {
                     HStack(spacing: 6) {
                         Circle()
@@ -355,240 +345,102 @@ public struct MenuBarPopoverView: View {
     private var settingsView: some View {
         ScrollView {
             VStack(spacing: 12) {
-                // Section 1: Network & Profiles
+                // Section 1: Location & Safe Radius (GPS)
                 VStack(spacing: 0) {
-                    // Row 1: Wi-Fi Network & Profile
+                    // Row 1: Status & Real-time Distance
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Location (GPS)")
+                                .font(.system(size: 11, weight: .semibold))
+
+                            if let dist = powerMonitor.distanceFromHome {
+                                let distText = dist < 1000 ? "\(Int(dist))m from home" : String(format: "%.1f km from home", dist / 1000.0)
+                                Text(powerMonitor.currentLocation == .home ? "Inside safe radius (\(distText))" : "Outside safe radius (\(distText))")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                            } else if powerMonitor.homeLatitude == nil {
+                                Text("Click button below to set home")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text("Acquiring GPS location...")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        Spacer()
+
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(powerMonitor.currentLocation == .home ? Color.blue : Color.orange)
+                                .frame(width: 6, height: 6)
+                            Text(powerMonitor.currentLocation == .home ? "🏠 Home" : "☕️ Outside")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(powerMonitor.currentLocation == .home ? .blue : .orange)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .clipShape(Capsule())
+                    }
+                    .padding(10)
+
+                    Divider().opacity(0.4)
+
+                    // Row 2: Safe Home Radius
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Current Network")
+                            Text("Safe Home Radius")
                                 .font(.system(size: 11, weight: .semibold))
-                            Text(powerMonitor.currentSSID ?? "Not Connected")
-                                .font(.system(size: 11))
+                            Text("Covers moving room-to-room")
+                                .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
 
                         Spacer()
 
+                        Picker("", selection: Binding(
+                            get: { Int(powerMonitor.homeRadiusMeters) },
+                            set: { powerMonitor.setHomeRadius(meters: Double($0)) }
+                        )) {
+                            Text("50m").tag(50)
+                            Text("100m").tag(100)
+                            Text("150m").tag(150)
+                            Text("250m").tag(250)
+                            Text("500m").tag(500)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 170)
+                    }
+                    .padding(10)
+
+                    Divider().opacity(0.4)
+
+                    // Row 3: Set Current Location as Home Button
+                    HStack {
                         Button(action: {
-                            powerMonitor.openProfileDialogForCurrentWifi()
+                            powerMonitor.setHomeLocationToCurrent()
                         }) {
-                            HStack(spacing: 4) {
-                                let isHome = powerMonitor.currentLocation == .home
-                                Text(isHome ? "🏠 \(powerMonitor.activeProfileName)" : "☕️ \(powerMonitor.activeProfileName)")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(isHome ? .blue : .orange)
-                                Image(systemName: "pencil")
+                            HStack(spacing: 5) {
+                                Image(systemName: "location.fill")
                                     .font(.system(size: 10))
-                                    .foregroundColor(.secondary)
+                                Text(powerMonitor.homeLatitude == nil ? "Set Current Location as Home" : "Update Home to Current Location")
+                                    .font(.system(size: 11, weight: .medium))
                             }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color(NSColor.controlBackgroundColor))
-                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
-                        .buttonStyle(.plain)
-                        .disabled(powerMonitor.currentSSID == nil)
-                    }
-                    .padding(10)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
 
-                    Divider().opacity(0.4)
+                        Spacer()
 
-                    // Saved Wi-Fi Networks
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Saved Networks")
-                            .font(.system(size: 10, weight: .semibold))
+                        if powerMonitor.homeLatitude != nil {
+                            Button("Reset") {
+                                powerMonitor.resetHomeLocation()
+                            }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 10))
                             .foregroundColor(.secondary)
-
-                        if powerMonitor.wifiProfileMap.isEmpty {
-                            Text("No networks saved yet")
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary.opacity(0.7))
-                                .padding(.vertical, 2)
-                        } else {
-                            ForEach(Array(powerMonitor.wifiProfileMap.keys.sorted()), id: \.self) { wifiSSID in
-                                let pName = powerMonitor.wifiProfileMap[wifiSSID] ?? "Outside"
-                                let isHome = powerMonitor.profiles.first(where: { $0.name == pName })?.isHomeBilling ?? (pName == "Home")
-
-                                HStack(spacing: 6) {
-                                    Image(systemName: "wifi")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.secondary)
-                                    Text(wifiSSID)
-                                        .font(.system(size: 11, weight: .medium))
-                                    Spacer()
-
-                                    Menu {
-                                        ForEach(powerMonitor.profiles) { p in
-                                            Button(action: {
-                                                powerMonitor.assignProfile(p.name, forSSID: wifiSSID)
-                                            }) {
-                                                HStack {
-                                                    Text(p.name)
-                                                    if p.name == pName {
-                                                        Image(systemName: "checkmark")
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    } label: {
-                                        HStack(spacing: 3) {
-                                            Text(pName)
-                                                .font(.system(size: 10, weight: .semibold))
-                                            Image(systemName: "chevron.up.chevron.down")
-                                                .font(.system(size: 7))
-                                        }
-                                        .foregroundColor(isHome ? .blue : .orange)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background((isHome ? Color.blue : Color.orange).opacity(0.12))
-                                        .clipShape(Capsule())
-                                    }
-                                    .menuStyle(.borderlessButton)
-
-                                    Button(action: {
-                                        powerMonitor.unassignWifi(ssid: wifiSSID)
-                                    }) {
-                                        Image(systemName: "xmark")
-                                            .font(.system(size: 9, weight: .semibold))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help("Forget network")
-                                }
-                                .padding(.vertical, 2)
-                            }
-                        }
-                    }
-                    .padding(10)
-
-                    Divider().opacity(0.4)
-
-                    // Profiles List & Management (Full CRUD)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Profiles")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.secondary)
-
-                        ForEach(powerMonitor.profiles) { p in
-                            if editingProfileId == p.id {
-                                // Inline Profile Editor (Update)
-                                VStack(alignment: .leading, spacing: 6) {
-                                    HStack(spacing: 6) {
-                                        TextField("Profile name", text: $editingProfileName)
-                                            .textFieldStyle(.roundedBorder)
-                                            .font(.system(size: 11))
-
-                                        Picker("", selection: $editingProfileIsHome) {
-                                            Text("Free").tag(false)
-                                            Text("PLN").tag(true)
-                                        }
-                                        .pickerStyle(.segmented)
-                                        .frame(width: 80)
-                                    }
-
-                                    HStack {
-                                        Spacer()
-
-                                        Button("Cancel") {
-                                            editingProfileId = nil
-                                        }
-                                        .buttonStyle(.bordered)
-                                        .controlSize(.mini)
-
-                                        Button("Save") {
-                                            let trimmed = editingProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
-                                            if !trimmed.isEmpty {
-                                                _ = powerMonitor.updateProfile(id: p.id, newName: trimmed, isHomeBilling: editingProfileIsHome)
-                                                editingProfileId = nil
-                                            }
-                                        }
-                                        .buttonStyle(.borderedProminent)
-                                        .controlSize(.mini)
-                                        .disabled(editingProfileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                                    }
-                                }
-                                .padding(8)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                        .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
-                                )
-                            } else {
-                                // Profile Row (Read, Edit, Delete)
-                                HStack(spacing: 6) {
-                                    Image(systemName: p.icon)
-                                        .font(.system(size: 10))
-                                        .foregroundColor(p.isHomeBilling ? .blue : .orange)
-                                    Text(p.name)
-                                        .font(.system(size: 11, weight: .medium))
-                                    Spacer()
-                                    Text(p.isHomeBilling ? "PLN Rate" : "Free (Rp 0)")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.secondary)
-
-                                    // Edit Button
-                                    Button(action: {
-                                        editingProfileId = p.id
-                                        editingProfileName = p.name
-                                        editingProfileIsHome = p.isHomeBilling
-                                    }) {
-                                        Image(systemName: "pencil")
-                                            .font(.system(size: 10))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .help("Edit profile")
-
-                                    // Delete Button (only non-system profiles)
-                                    if !p.isSystem {
-                                        Button(action: {
-                                            powerMonitor.deleteProfile(id: p.id)
-                                        }) {
-                                            Image(systemName: "trash")
-                                                .font(.system(size: 9))
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .help("Delete profile")
-                                    }
-                                }
-                                .padding(.vertical, 2)
-                            }
-                        }
-
-                        Divider().opacity(0.3).padding(.vertical, 2)
-
-                        // Add new profile inline (Create)
-                        HStack(spacing: 6) {
-                            TextField("New profile name...", text: $newProfileName)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 11))
-                                .onSubmit {
-                                    let trimmed = newProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
-                                    if !trimmed.isEmpty {
-                                        _ = powerMonitor.addProfile(name: trimmed, isHomeBilling: newProfileIsHome)
-                                        newProfileName = ""
-                                    }
-                                }
-
-                            Picker("", selection: $newProfileIsHome) {
-                                Text("Free").tag(false)
-                                Text("PLN").tag(true)
-                            }
-                            .pickerStyle(.segmented)
-                            .frame(width: 80)
-
-                            Button("Add") {
-                                let trimmed = newProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
-                                if !trimmed.isEmpty {
-                                    _ = powerMonitor.addProfile(name: trimmed, isHomeBilling: newProfileIsHome)
-                                    newProfileName = ""
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
-                            .disabled(newProfileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
                     }
                     .padding(10)

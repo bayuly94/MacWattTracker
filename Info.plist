@@ -26,6 +26,12 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSLocationUsageDescription</key>
+    <string>MacWattTracker uses your location to automatically detect if you are at Home or Outside within a safe radius.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>MacWattTracker uses your location to automatically detect if you are at Home or Outside within a safe radius.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>MacWattTracker uses your location to automatically detect if you are at Home or Outside within a safe radius.</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2026. All rights reserved.</string>
 </dict>
