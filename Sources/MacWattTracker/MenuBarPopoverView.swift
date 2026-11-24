@@ -557,11 +557,20 @@ public struct MenuBarPopoverView: View {
                             }
                         }
 
+                        Divider().opacity(0.3).padding(.vertical, 2)
+
                         // Add new profile inline (Create)
                         HStack(spacing: 6) {
-                            TextField("New profile name", text: $newProfileName)
+                            TextField("New profile name...", text: $newProfileName)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(size: 11))
+                                .onSubmit {
+                                    let trimmed = newProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    if !trimmed.isEmpty {
+                                        _ = powerMonitor.addProfile(name: trimmed, isHomeBilling: newProfileIsHome)
+                                        newProfileName = ""
+                                    }
+                                }
 
                             Picker("", selection: $newProfileIsHome) {
                                 Text("Free").tag(false)
@@ -570,21 +579,17 @@ public struct MenuBarPopoverView: View {
                             .pickerStyle(.segmented)
                             .frame(width: 80)
 
-                            Button(action: {
+                            Button("Add") {
                                 let trimmed = newProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
                                 if !trimmed.isEmpty {
                                     _ = powerMonitor.addProfile(name: trimmed, isHomeBilling: newProfileIsHome)
                                     newProfileName = ""
                                 }
-                            }) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.accentColor)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
                             .disabled(newProfileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
-                        .padding(.top, 4)
                     }
                     .padding(10)
 
