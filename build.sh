@@ -93,6 +93,9 @@ else
 fi
 
 # Salin icon asset jika tersedia
+if [ -f "assets/AppIcon.icns" ]; then
+    cp "assets/AppIcon.icns" "${RESOURCES_DIR}/AppIcon.icns"
+fi
 if [ -f "assets/logo.png" ]; then
     cp "assets/logo.png" "${RESOURCES_DIR}/AppIcon.png"
 fi
@@ -165,6 +168,7 @@ if [ "$INSTALL_TO_APPLICATIONS" = true ]; then
     
     rm -rf "/Applications/${BUNDLE_DIR}"
     cp -R "${BUNDLE_DIR}" "/Applications/${BUNDLE_DIR}"
+    touch "/Applications/${BUNDLE_DIR}"
     echo -e "${GREEN}✅ ${APP_NAME}.app berhasil dipasang di /Applications!${NC}"
     
     echo -e "${YELLOW}⚙️  Mendaftarkan ke Login Items macOS (Auto Start)...${NC}"
