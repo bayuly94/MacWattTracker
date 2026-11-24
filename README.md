@@ -8,7 +8,7 @@
     <img src="https://img.shields.io/badge/Platform-macOS%2013.0+-blue?logo=apple" alt="macOS 13.0+" />
     <img src="https://img.shields.io/badge/Swift-5.9+-orange?logo=swift" alt="Swift 5.9+" />
     <img src="https://img.shields.io/badge/Architecture-Apple%20Silicon%20(arm64)-purple" alt="Apple Silicon" />
-    <img src="https://img.shields.io/badge/Tested-M1%20Pro%2016--inch-success" alt="M1 Pro 16-inch Tested" />
+    <img src="https://img.shields.io/badge/Widgets-Small%20%7C%20Medium%20%7C%20Large-success" alt="WidgetKit Supported" />
     <img src="https://img.shields.io/badge/Tarif%20PLN-Rp%201.444%2C70%2FkWh-green" alt="Tarif Default" />
   </p>
 </div>
@@ -77,6 +77,17 @@ Aplikasi ini mengakumulasikan penggunaan energi (**Wh & kWh**), menghitung estim
 - Agregasi harian disimpan otomatis ke file JSON lokal di `~/Library/Application Support/MacWattTracker/daily_history.json`.
 - Mendukung ekspor seluruh riwayat ke file spreadsheet `.csv` melalui menu Pengaturan.
 
+### 8. Dukungan Widget macOS (Small, Medium, & Large)
+MacWattTracker kini dilengkapi **WidgetKit Extension** native yang dapat dipasang di **Desktop macOS** maupun **Notification Center**:
+- **Small Widget:** Menampilkan status charger (`⚡ 140W`), Watt PLN live, biaya listrik Hari Ini (`Rp ...`), serta durasi & kWh aktif.
+- **Medium Widget:** Tampilan horizontal 2 kolom membandingkan daya stopkontak real-time dengan ringkasan konsumsi energi Hari Ini dan Bulan Ini.
+- **Large / High Widget:** Tampilan dashboard lengkap berisi meteran Watt stopkontak, kartu ringkasan ganda, serta riwayat pemakaian beberapa hari terakhir.
+
+*Cara Menambahkan Widget ke Desktop macOS:*
+1. Klik kanan pada area kosong di **Desktop macOS**, lalu pilih **"Edit Widgets..."** (atau buka Notification Center > klik tombol **"Edit Widgets"** di bagian paling bawah).
+2. Cari atau pilih **MacWattTracker** pada daftar aplikasi di sebelah kiri.
+3. Pilih ukuran widget yang diinginkan (**Small**, **Medium**, atau **Large**), lalu tarik (*drag*) ke Desktop Anda.
+
 ---
 
 ## 📐 Rumus & Perhitungan
@@ -144,21 +155,25 @@ osascript -e 'tell application "System Events" to delete login item "MacWattTrac
 
 ```
 MacWattTracker/
-├── Package.swift                             # SPM manifest (Swift 5.9, macOS 13+)
+├── Package.swift                             # SPM manifest (multi-target: Core, App, Widget)
 ├── Info.plist                                # LSUIElement=true & bundle identity
-├── build.sh                                  # Script compile, bundle, sign, install & autostart
+├── build.sh                                  # Script compile, bundle, sign, install & widget registration
 ├── README.md                                 # Dokumentasi lengkap
 ├── .gitignore                                # Git ignore (.build, .cache, *.app, dsb.)
 ├── assets/
 │   ├── logo.png                              # Ikon resmi aplikasi MacWattTracker
 │   └── screenshot.png                        # Tangkapan layar antarmuka & Menu Bar
 └── Sources/
-    └── MacWattTracker/
-        ├── MacWattTrackerApp.swift          # @main entry point dengan MenuBarExtra
-        ├── DailyRecord.swift                 # Struktur data agregasi harian (Wh, kWh, durasi, peak)
-        ├── HistoryStore.swift                # Pengelola JSON lokal & ekspor file CSV
-        ├── PowerMonitor.swift                # Polling ioreg 5 dtk, proteksi sleep, rumus PLN
-        └── MenuBarPopoverView.swift          # Antarmuka popover SwiftUI adaptif Light/Dark mode
+    ├── MacWattTrackerCore/                   # Shared module antara App & Widget
+    │   ├── DailyRecord.swift                 # Struktur data agregasi harian (Wh, kWh, durasi, peak)
+    │   └── LivePowerStatus.swift             # Model status live snapshot untuk WidgetKit
+    ├── MacWattTracker/                       # Aplikasi Utama (Menu Bar Extra)
+    │   ├── MacWattTrackerApp.swift          # @main entry point dengan MenuBarExtra
+    │   ├── HistoryStore.swift                # Pengelola JSON lokal & ekspor file CSV
+    │   ├── PowerMonitor.swift                # Polling ioreg 5 dtk, proteksi sleep, rumus PLN
+    │   └── MenuBarPopoverView.swift          # Antarmuka popover SwiftUI adaptif Light/Dark mode
+    └── MacWattTrackerWidget/                 # macOS WidgetKit Extension
+        └── MacWattTrackerWidget.swift        # Implementasi Widget Small, Medium, & Large
 ```
 
 ---

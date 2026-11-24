@@ -10,14 +10,27 @@ let package = Package(
         .executable(
             name: "MacWattTracker",
             targets: ["MacWattTracker"]
+        ),
+        .executable(
+            name: "MacWattTrackerWidget",
+            targets: ["MacWattTrackerWidget"]
         )
     ],
     dependencies: [],
     targets: [
+        .target(
+            name: "MacWattTrackerCore",
+            path: "Sources/MacWattTrackerCore"
+        ),
         .executableTarget(
             name: "MacWattTracker",
-            dependencies: [],
+            dependencies: ["MacWattTrackerCore"],
             path: "Sources/MacWattTracker"
+        ),
+        .executableTarget(
+            name: "MacWattTrackerWidget",
+            dependencies: ["MacWattTrackerCore"],
+            path: "Sources/MacWattTrackerWidget"
         )
     ]
 )

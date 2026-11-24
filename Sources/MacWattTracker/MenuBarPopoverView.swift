@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
+import MacWattTrackerCore
 
 /// Tampilan Menu Bar Popover yang clean, modern, dan adaptif terhadap Light Mode & Dark Mode macOS.
 public struct MenuBarPopoverView: View {

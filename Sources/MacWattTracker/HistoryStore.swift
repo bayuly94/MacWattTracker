@@ -1,4 +1,5 @@
 import Foundation
+import MacWattTrackerCore
 
 /// Pengelola penyimpanan riwayat harian ke file JSON lokal (~/Library/Application Support/MacWattTracker/daily_history.json).
 public final class HistoryStore {

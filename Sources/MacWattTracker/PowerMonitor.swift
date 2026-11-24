@@ -1,6 +1,8 @@
 import Foundation
 import AppKit
 import ServiceManagement
+import WidgetKit
+import MacWattTrackerCore
 
 /// Kelas utama pemantau konsumsi daya listrik real-time dari stopkontak (PLN)
 /// mengeksekusi `/usr/sbin/ioreg -rw0 -c AppleSmartBattery` secara berkala (5 detik).
@@ -252,6 +254,39 @@ public final class PowerMonitor: ObservableObject {
         self.monthTotalWh = historyStore.monthlyWh(for: yearMonth)
         self.monthActiveSeconds = historyStore.monthlyActiveSeconds(for: yearMonth)
         self.historyRecords = historyStore.allRecordsSortedDesc()
+        saveLiveStatusSnapshot()
+    }
+
+    private func saveLiveStatusSnapshot() {
+        let recent = historyRecords.prefix(5).map { r in
+            RecentDaySummary(
+                date: r.date,
+                label: r.friendlyDateLabel,
+                kwh: r.totalKWh,
+                cost: r.calculateCost(tariffPerKWh: tariffPerKWh)
+            )
+        }
+
+        let snapshot = LivePowerStatus(
+            isExternalConnected: isExternalConnected,
+            currentPlnWatt: currentPlnWatt,
+            systemLoadWatt: systemLoadWatt,
+            adapterRating: displayAdapterRating,
+            todayWh: todayRecord.totalWh,
+            todayKWh: todayRecord.totalKWh,
+            todayCost: todayRecord.calculateCost(tariffPerKWh: tariffPerKWh),
+            todayDuration: todayRecord.formattedDuration,
+            todayPeakWatt: todayRecord.peakWatt,
+            monthWh: monthTotalWh,
+            monthKWh: monthTotalWh / 1000.0,
+            monthCost: (monthTotalWh / 1000.0) * tariffPerKWh,
+            monthDuration: formatDuration(seconds: monthActiveSeconds),
+            tariffPerKWh: tariffPerKWh,
+            recentHistory: Array(recent),
+            updatedAt: Date()
+        )
+        snapshot.save()
+        WidgetCenter.shared.reloadTimelines(ofKind: "MacWattTrackerWidget")
     }
 
     public func resetTodayData() {
