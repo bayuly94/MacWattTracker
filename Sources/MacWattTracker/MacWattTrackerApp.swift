@@ -8,35 +8,18 @@ struct MacWattTrackerApp: App {
         MenuBarExtra {
             MenuBarPopoverView(powerMonitor: powerMonitor)
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 if powerMonitor.isExternalConnected {
-                    trayImage(name: "tray_power")
+                    Image(systemName: "bolt.fill")
+                        .renderingMode(.template)
                     Text("\(Int(round(powerMonitor.currentPlnWatt)))W")
                         .monospacedDigit()
                 } else {
-                    trayImage(name: "tray_battery")
+                    Image(systemName: "battery.100")
+                        .renderingMode(.template)
                 }
             }
         }
         .menuBarExtraStyle(.window)
-    }
-
-    @ViewBuilder
-    private func trayImage(name: String) -> some View {
-        if let imagePath = Bundle.main.path(forResource: name, ofType: "png"),
-           let nsImage = NSImage(contentsOfFile: imagePath) {
-            Image(nsImage: nsImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 18, height: 18)
-        } else if let resourcePath = Bundle.main.resourcePath,
-                  let nsImage = NSImage(contentsOfFile: "\(resourcePath)/\(name).png") {
-            Image(nsImage: nsImage)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 18, height: 18)
-        } else {
-            Image(systemName: name == "tray_power" ? "bolt.fill" : "battery.100")
-        }
     }
 }

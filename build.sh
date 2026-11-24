@@ -20,12 +20,17 @@ APPEX_DIR="${PLUGINS_DIR}/${WIDGET_NAME}.appex"
 
 INSTALL_TO_APPLICATIONS=false
 CLEAN_BUILD=false
+CREATE_ZIP=false
 
 # Parsing argumen baris perintah
 for arg in "$@"; do
     case $arg in
         -i|--install)
             INSTALL_TO_APPLICATIONS=true
+            shift
+            ;;
+        -z|--zip)
+            CREATE_ZIP=true
             shift
             ;;
         -c|--clean)
@@ -37,6 +42,7 @@ for arg in "$@"; do
             echo ""
             echo "Opsi:"
             echo "  -i, --install    Salin ${APP_NAME}.app ke folder /Applications setelah kompilasi selesai."
+            echo "  -z, --zip        Buat paket rilis .zip siap download (${APP_NAME}-v0.1.0-macOS.zip)."
             echo "  -c, --clean      Hapus build cache dan direktori .app sebelumnya sebelum kompilasi."
             echo "  -h, --help       Tampilkan pesan bantuan ini."
             exit 0
@@ -117,7 +123,7 @@ if [ -f "${WIDGET_BIN_PATH}" ]; then
     <key>CFBundlePackageType</key>
     <string>XPC!</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>0.1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>LSMinimumSystemVersion</key>
@@ -141,7 +147,16 @@ codesign --force --deep --sign - "${BUNDLE_DIR}"
 
 echo -e "${GREEN}🎉 Sukses merakit ${BUNDLE_DIR} & Widgets!${NC}"
 
-# 5. Opsi instalasi ke /Applications
+# 5. Opsi pembuatan paket zip rilis
+if [ "$CREATE_ZIP" = true ]; then
+    ZIP_NAME="${APP_NAME}-v0.1.0-macOS.zip"
+    echo -e "${YELLOW}🗜️  Membuat paket zip rilis (${ZIP_NAME})...${NC}"
+    rm -f "${ZIP_NAME}"
+    ditto -c -k --keepParent "${BUNDLE_DIR}" "${ZIP_NAME}"
+    echo -e "${GREEN}✅ Paket rilis siap diunggah: ${ZIP_NAME}${NC}"
+fi
+
+# 6. Opsi instalasi ke /Applications
 if [ "$INSTALL_TO_APPLICATIONS" = true ]; then
     echo -e "${YELLOW}🚀 Menginstal ${BUNDLE_DIR} ke /Applications...${NC}"
     

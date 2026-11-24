@@ -5,3 +5,4 @@ MacWattTracker.app/
 *.xcodeproj
 xcuserdata/
 DerivedData/
+*.zip

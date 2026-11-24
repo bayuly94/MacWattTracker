@@ -8,7 +8,6 @@ public struct MenuBarPopoverView: View {
     @ObservedObject var powerMonitor: PowerMonitor
 
     @State private var selectedTab: Int = 0
-    @State private var showingResetAlert: Bool = false
     @State private var exportMessage: String? = nil
     @State private var showingExportAlert: Bool = false
 
@@ -64,14 +63,6 @@ public struct MenuBarPopoverView: View {
         }
         .frame(width: 360, height: 680)
         .background(Color(NSColor.windowBackgroundColor))
-        .alert("Konfirmasi Reset", isPresented: $showingResetAlert) {
-            Button("Batal", role: .cancel) { }
-            Button("Reset", role: .destructive) {
-                powerMonitor.resetTodayData()
-            }
-        } message: {
-            Text("Apakah Anda yakin ingin menghapus data konsumsi daya dan durasi aktif untuk Hari Ini?")
-        }
         .alert("Ekspor CSV", isPresented: $showingExportAlert) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -435,18 +426,6 @@ public struct MenuBarPopoverView: View {
                     }
                     .buttonStyle(.bordered)
 
-                    Button(action: {
-                        showingResetAlert = true
-                    }) {
-                        HStack {
-                            Image(systemName: "arrow.counterclockwise")
-                            Text("Reset Data Hari Ini")
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.orange)
-
                     Button(role: .destructive, action: {
                         NSApplication.shared.terminate(nil)
                     }) {
@@ -474,7 +453,7 @@ public struct MenuBarPopoverView: View {
 
             Spacer()
 
-            Text("MacWattTracker Native")
+            Text("MacWattTracker v0.1.0 • Native")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
         }

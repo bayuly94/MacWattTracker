@@ -5,6 +5,7 @@
   <p><i>Dioptimalkan secara khusus untuk MacBook Pro Apple Silicon (M1 Pro, M1 Max, M2, M3, M4)</i></p>
 
   <p>
+    <img src="https://img.shields.io/badge/Release-v0.1.0-blue?logo=github" alt="v0.1.0" />
     <img src="https://img.shields.io/badge/Platform-macOS%2013.0+-blue?logo=apple" alt="macOS 13.0+" />
     <img src="https://img.shields.io/badge/Swift-5.9+-orange?logo=swift" alt="Swift 5.9+" />
     <img src="https://img.shields.io/badge/Architecture-Apple%20Silicon%20(arm64)-purple" alt="Apple Silicon" />
@@ -21,6 +22,20 @@
 
 ---
 
+## 📥 Download Siap Pakai (v0.1.0)
+
+Bagi pengguna yang ingin langsung memakai aplikasi tanpa perlu mengompilasi dari terminal:
+
+👉 **[Download MacWattTracker-v0.1.0-macOS.zip (Direct Download)](https://github.com/bayuly94/MacWattTracker/releases/download/v0.1.0/MacWattTracker-v0.1.0-macOS.zip)**
+
+**Langkah Pemasangan Cepat:**
+1. Unduh dan ekstrak file `MacWattTracker-v0.1.0-macOS.zip`.
+2. Pindahkan **`MacWattTracker.app`** ke folder `/Applications`.
+3. Buka aplikasi, dan ikon daya akan langsung aktif di Menu Bar macOS Anda!
+4. *(Opsional)* Pasang Widget MacWattTracker di Desktop atau Notification Center dengan klik kanan Desktop > **"Edit Widgets..."**.
+
+---
+
 ## 📖 Tentang MacWattTracker
 
 **MacWattTracker** adalah aplikasi utilitas macOS native murni Menu Bar (*system tray*) yang dirancang khusus untuk memantau konsumsi daya listrik nyata yang ditarik dari stopkontak dinding (PLN) saat MacBook Anda terhubung ke charger.
@@ -34,9 +49,9 @@ Aplikasi ini mengakumulasikan penggunaan energi (**Wh & kWh**), menghitung estim
 ### 1. Minimalis & Murni Berjalan di Menu Bar (Tray Only)
 - Menggunakan `MenuBarExtra` SwiftUI dengan `LSUIElement = true`.
 - **Tidak muncul di Dock maupun Cmd+Tab App Switcher**, menjaga layar kerja Anda tetap bersih.
-- **Tampilan Tray Logo Eksklusif (2 Mode):**
-  - **Saat Terhubung Charger:** Menampilkan ikon logo aplikasi (motif listrik) + angka Watt live (misal: `18W`).
-  - **Saat Mode Baterai:** Menampilkan ikon logo aplikasi (motif baterai) murni tanpa label teks "Baterai", sehingga system tray Anda tetap sangat bersih dan rapi.
+- **Tampilan Tray Monokrom Native (Dukungan Penuh Light & Dark Mode macOS):**
+  - **Saat Terhubung Charger:** Menampilkan ikon listrik monokrom template + angka Watt live (misal: `⚡ 18W`).
+  - **Saat Mode Baterai:** Menampilkan ikon baterai monokrom template murni **tanpa label teks "Baterai"**, beradaptasi dinamis terhadap wallpaper dan tema gelap/terang macOS.
   - Informasi Rupiah dan rincian lengkap tersedia di dalam jendela popover vertikal yang lega (tinggi 680pt).
 
 ### 2. Logika Cerdas: Stopkontak PLN vs Mode Baterai
