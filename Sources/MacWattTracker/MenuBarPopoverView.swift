@@ -94,10 +94,10 @@ public struct MenuBarPopoverView: View {
 
                     // Location Profile Pill Switcher
                     Button(action: {
-                        powerMonitor.cycleLocationMode()
+                        powerMonitor.openProfileDialogForCurrentWifi()
                     }) {
                         HStack(spacing: 4) {
-                            Text(powerMonitor.currentLocation == .home ? "🏠 Home" : "☕️ Outside")
+                            Text(powerMonitor.currentLocation == .home ? "🏠 \(powerMonitor.activeProfileName)" : "☕️ \(powerMonitor.activeProfileName)")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(powerMonitor.currentLocation == .home ? .blue : .orange)
                         }
@@ -107,7 +107,7 @@ public struct MenuBarPopoverView: View {
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .help("Location: \(powerMonitor.currentLocation.rawValue) (\(powerMonitor.locationMode.rawValue)). Click to cycle mode.")
+                    .help("Active profile: \(powerMonitor.activeProfileName). Click to change profile.")
                 } else {
                     HStack(spacing: 6) {
                         Circle()
@@ -377,21 +377,55 @@ public struct MenuBarPopoverView: View {
                             .foregroundColor(.primary)
                     }
 
-                    // Quick button to add/remove current Wi-Fi
+                    // Quick button to configure profile for current Wi-Fi
                     if let currentSSID = powerMonitor.currentSSID {
                         Button(action: {
-                            powerMonitor.toggleCurrentWifiAsHome()
+                            powerMonitor.openProfileDialogForCurrentWifi()
                         }) {
                             HStack {
-                                Image(systemName: powerMonitor.isCurrentWifiHome ? "checkmark.circle.fill" : "plus.circle.fill")
-                                Text(powerMonitor.isCurrentWifiHome ? "Current Wi-Fi is Saved as Home" : "Set '\(currentSSID)' as Home Wi-Fi")
+                                Image(systemName: "slider.horizontal.3")
+                                Text("Configure Profile for '\(currentSSID)'")
                             }
                             .font(.system(size: 11, weight: .medium))
                             .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
-                        .tint(powerMonitor.isCurrentWifiHome ? .green : .accentColor)
+                        .tint(.accentColor)
                         .controlSize(.small)
+                    }
+
+                    // Assigned Wi-Fi Profiles List
+                    if !powerMonitor.wifiProfileMap.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Assigned Wi-Fi Profiles:")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.secondary)
+
+                            ForEach(Array(powerMonitor.wifiProfileMap.keys.sorted()), id: \.self) { wifiName in
+                                HStack {
+                                    Image(systemName: "wifi")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.secondary)
+                                    Text(wifiName)
+                                        .font(.system(size: 11))
+                                    Spacer()
+                                    Text(powerMonitor.wifiProfileMap[wifiName] ?? "")
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .foregroundColor(.accentColor)
+                                    Button(action: {
+                                        powerMonitor.wifiProfileMap.removeValue(forKey: wifiName)
+                                        UserDefaults.standard.set(powerMonitor.wifiProfileMap, forKey: "wifiProfileMap")
+                                        powerMonitor.updateCurrentLocation()
+                                    }) {
+                                        Image(systemName: "xmark.circle")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        }
                     }
 
                     // Location Mode Picker
@@ -420,35 +454,6 @@ public struct MenuBarPopoverView: View {
                             }
                         }
                         .pickerStyle(.menu)
-                    }
-
-                    // Saved Home Wi-Fi List
-                    if !powerMonitor.homeWifiNetworks.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Saved Home Wi-Fi Networks:")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(.secondary)
-
-                            ForEach(powerMonitor.homeWifiNetworks, id: \.self) { ssid in
-                                HStack {
-                                    Image(systemName: "house.fill")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.blue)
-                                    Text(ssid)
-                                        .font(.system(size: 11))
-                                    Spacer()
-                                    Button(action: {
-                                        powerMonitor.removeHomeWifi(ssid)
-                                    }) {
-                                        Image(systemName: "xmark.circle")
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                                .padding(.vertical, 2)
-                            }
-                        }
                     }
 
                     Text("When connected outside Home (e.g. at cafes), power is categorized separately so it doesn't inflate your home PLN electric bill.")

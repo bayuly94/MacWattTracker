@@ -20,6 +20,25 @@ public enum OutsidePolicy: String, CaseIterable, Codable {
     case pause = "Pause tracking when outside"
 }
 
+public struct LocationProfile: Codable, Identifiable, Hashable {
+    public var id: String { name }
+    public var name: String
+    public var icon: String
+    public var isHomeBilling: Bool
+
+    public init(name: String, icon: String = "mappin.circle.fill", isHomeBilling: Bool = false) {
+        self.name = name
+        self.icon = icon
+        self.isHomeBilling = isHomeBilling
+    }
+
+    public static let defaultProfiles: [LocationProfile] = [
+        LocationProfile(name: "Home", icon: "house.fill", isHomeBilling: true),
+        LocationProfile(name: "Cafe / Outside", icon: "cup.and.saucer.fill", isHomeBilling: false),
+        LocationProfile(name: "Office", icon: "building.2.fill", isHomeBilling: false)
+    ]
+}
+
 /// Kelas utama pemantau konsumsi daya listrik real-time dari stopkontak (PLN)
 /// mengeksekusi `/usr/sbin/ioreg -rw0 -c AppleSmartBattery` secara berkala (5 detik).
 public final class PowerMonitor: ObservableObject {
@@ -40,9 +59,24 @@ public final class PowerMonitor: ObservableObject {
     @Published public var monthActiveSeconds: Int = 0
     @Published public var isLaunchAtLogin: Bool = false
 
-    // MARK: - Location Tracking
+    // MARK: - Location & Profile Tracking
     @Published public var currentSSID: String? = nil
     @Published public var currentLocation: LocationType = .home
+    @Published public var activeProfileName: String = "Home"
+    @Published public var customProfiles: [LocationProfile] = []
+    @Published public var wifiProfileMap: [String: String] = [:]
+    @Published public var lastPromptedSSID: String? = nil
+
+    public var allAvailableProfiles: [LocationProfile] {
+        var list = LocationProfile.defaultProfiles
+        for cp in customProfiles {
+            if !list.contains(where: { $0.name == cp.name }) {
+                list.append(cp)
+            }
+        }
+        return list
+    }
+
     @Published public var homeWifiNetworks: [String] {
         didSet {
             UserDefaults.standard.set(homeWifiNetworks, forKey: "homeWifiNetworks")
@@ -95,6 +129,17 @@ public final class PowerMonitor: ObservableObject {
         self.locationMode = LocationMode(rawValue: rawMode) ?? .auto
         let rawPolicy = UserDefaults.standard.string(forKey: "outsidePolicy") ?? ""
         self.outsidePolicy = OutsidePolicy(rawValue: rawPolicy) ?? .free
+
+        // Load custom profiles
+        if let data = UserDefaults.standard.data(forKey: "customProfiles"),
+           let profiles = try? JSONDecoder().decode([LocationProfile].self, from: data) {
+            self.customProfiles = profiles
+        } else {
+            self.customProfiles = []
+        }
+
+        // Load wifiProfileMap
+        self.wifiProfileMap = UserDefaults.standard.dictionary(forKey: "wifiProfileMap") as? [String: String] ?? [:]
 
         let todayStr = Self.formatDateKey(Date())
         self.todayRecord = historyStore.getRecord(for: todayStr)
@@ -301,25 +346,69 @@ public final class PowerMonitor: ObservableObject {
         return (pIn, pLoad, watts, name)
     }
 
-    // MARK: - Location Management
+    // MARK: - Location & Profile Management
 
     public func updateCurrentLocation() {
         let ssid = currentSSID
         switch locationMode {
         case .forceHome:
+            activeProfileName = "Home"
             currentLocation = .home
         case .forceOutside:
+            activeProfileName = "Outside"
             currentLocation = .outside
         case .auto:
-            if homeWifiNetworks.isEmpty {
-                // Default to Home if no home network has been configured yet
-                currentLocation = .home
-            } else if let ssid = ssid, homeWifiNetworks.contains(ssid) {
-                currentLocation = .home
+            if let ssid = ssid {
+                if let assignedName = wifiProfileMap[ssid] {
+                    activeProfileName = assignedName
+                    let profile = allAvailableProfiles.first(where: { $0.name == assignedName })
+                    currentLocation = (profile?.isHomeBilling ?? false) ? .home : .outside
+                } else if homeWifiNetworks.contains(ssid) {
+                    activeProfileName = "Home"
+                    currentLocation = .home
+                } else {
+                    // New unassigned Wi-Fi network detected!
+                    activeProfileName = "Outside"
+                    currentLocation = .outside
+
+                    // Show popup dialog prompt to select/create profile
+                    if lastPromptedSSID != ssid {
+                        lastPromptedSSID = ssid
+                        WifiProfileDialogManager.shared.showDialog(ssid: ssid)
+                    }
+                }
             } else {
+                activeProfileName = "Unknown"
                 currentLocation = .outside
             }
         }
+    }
+
+    public func addCustomProfile(_ profile: LocationProfile) {
+        if !customProfiles.contains(where: { $0.name == profile.name }) {
+            customProfiles.append(profile)
+            if let data = try? JSONEncoder().encode(customProfiles) {
+                UserDefaults.standard.set(data, forKey: "customProfiles")
+            }
+        }
+    }
+
+    public func assignProfile(_ profileName: String, forSSID ssid: String) {
+        wifiProfileMap[ssid] = profileName
+        UserDefaults.standard.set(wifiProfileMap, forKey: "wifiProfileMap")
+        updateCurrentLocation()
+    }
+
+    public func applyProfileTemporarily(_ profileName: String) {
+        activeProfileName = profileName
+        if let profile = allAvailableProfiles.first(where: { $0.name == profileName }) {
+            currentLocation = profile.isHomeBilling ? .home : .outside
+        }
+    }
+
+    public func openProfileDialogForCurrentWifi() {
+        guard let ssid = currentSSID else { return }
+        WifiProfileDialogManager.shared.showDialog(ssid: ssid)
     }
 
     public static func detectCurrentSSID() -> String? {

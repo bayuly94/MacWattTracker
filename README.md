@@ -105,13 +105,14 @@ MacWattTracker includes a native **WidgetKit Extension** that can be placed on y
 
 ### 9. Smart Location Profiles (Home vs. Outside / Cafe)
 Never worry about mixing cafe or office charging into your personal home electricity bill:
-- **Instant Wi-Fi-Based Auto-Detection:** Automatically detects your connected Wi-Fi network with zero-latency and without requesting intrusive GPS permissions.
+- **Automatic Wi-Fi Connection Dialog:** Whenever connecting to a new Wi-Fi network, MacWattTracker displays an unobtrusive popup dialog to assign a location profile. If the profile doesn't exist yet, you can create a custom profile name (e.g., *"Starbucks Central"*, *"Coworking Space"*, *"Office"*).
 - **Bill Separation:**
   - **🏠 Home Mode:** Your configured PLN residential tariff is applied to your estimated bill.
   - **☕️ Outside Mode (Cafe, Office, Co-working):** Energy (Wh & kWh) is tracked and cataloged as **Free (Rp 0)**, keeping your home electricity bill 100% accurate.
+- **Custom Profile Creation:** Easily define custom profile names with dedicated billing policies (Home PLN Rate vs. Free / Outside).
 - **Flexible Policies:** In Settings, choose between *"Free (Rp 0 - Won't affect home bill)"* or *"Pause tracking when outside"*.
-- **Quick Location Switcher:** Click the location pill in the popover header anytime to cycle between `Auto (Wi-Fi)`, `Always Home`, or `Always Outside`.
-- **One-Click Home Wi-Fi Setup:** Add or remove the current Wi-Fi network with a single click in the Settings tab.
+- **Quick Location Switcher:** Click the location pill in the popover header anytime to open the profile dialog or cycle profiles.
+- **Persistent Network Memory:** Remembered Wi-Fi networks are permanently mapped to their respective profiles.
 
 ---
 
