@@ -90,6 +90,9 @@ fi
 if [ -f "assets/logo.png" ]; then
     cp "assets/logo.png" "${RESOURCES_DIR}/AppIcon.png"
 fi
+if [ -d "assets" ]; then
+    cp assets/tray_*.png "${RESOURCES_DIR}/" 2>/dev/null || true
+fi
 
 # Rakit WidgetKit Extension (.appex) jika biner widget tersedia
 if [ -f "${WIDGET_BIN_PATH}" ]; then

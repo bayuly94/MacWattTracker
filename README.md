@@ -34,10 +34,10 @@ Aplikasi ini mengakumulasikan penggunaan energi (**Wh & kWh**), menghitung estim
 ### 1. Minimalis & Murni Berjalan di Menu Bar (Tray Only)
 - Menggunakan `MenuBarExtra` SwiftUI dengan `LSUIElement = true`.
 - **Tidak muncul di Dock maupun Cmd+Tab App Switcher**, menjaga layar kerja Anda tetap bersih.
-- **Tampilan Tray Minimalis:**
-  - Saat terhubung charger: Menampilkan ikon petir dan angka Watt live (misal: `⚡ 18W`).
-  - Saat mode baterai: Menampilkan status ringkas (misal: `🔋 Baterai`).
-  - Informasi Rupiah dan rincian lengkap sengaja diletakkan di dalam popover agar tray tetap ringkas.
+- **Tampilan Tray Logo Eksklusif (2 Mode):**
+  - **Saat Terhubung Charger:** Menampilkan ikon logo aplikasi (motif listrik) + angka Watt live (misal: `18W`).
+  - **Saat Mode Baterai:** Menampilkan ikon logo aplikasi (motif baterai) murni tanpa label teks "Baterai", sehingga system tray Anda tetap sangat bersih dan rapi.
+  - Informasi Rupiah dan rincian lengkap tersedia di dalam jendela popover vertikal yang lega (tinggi 680pt).
 
 ### 2. Logika Cerdas: Stopkontak PLN vs Mode Baterai
 - **Saat Terhubung Charger (`ExternalConnected == true`):**

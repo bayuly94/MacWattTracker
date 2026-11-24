@@ -62,7 +62,7 @@ public struct MenuBarPopoverView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
         }
-        .frame(width: 360, height: 530)
+        .frame(width: 360, height: 680)
         .background(Color(NSColor.windowBackgroundColor))
         .alert("Konfirmasi Reset", isPresented: $showingResetAlert) {
             Button("Batal", role: .cancel) { }
